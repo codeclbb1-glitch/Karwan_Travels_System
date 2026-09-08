@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+Frontend/dist/
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Markdown and local documentation
+*.md
+
+# Local tooling and editor files
+.vscode/
+.DS_Store
+Thumbs.db
