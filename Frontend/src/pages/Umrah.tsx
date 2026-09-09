@@ -4,6 +4,7 @@ import { useApp } from "../context";
 import Modal from "../components/Modal";
 import { formatPKR } from "../data";
 import type { UmrahPackage, TransportType } from "../types";
+import { validators, collectErrors, hasErrors, FieldError, inputClass, type FieldErrors } from "../lib/validation";
 
 const emptyPackage: Omit<UmrahPackage, "id"> = {
   name: "",
@@ -38,6 +39,15 @@ export default function Umrah() {
   const [pkgModal, setPkgModal] = useState(false);
   const [editPkgId, setEditPkgId] = useState<string | null>(null);
   const [pkgForm, setPkgForm] = useState<Omit<UmrahPackage, "id">>(emptyPackage);
+  const [pkgErrors, setPkgErrors] = useState<FieldErrors>({});
+
+  const validatePkg = () => collectErrors([
+    ["name", validators.required(pkgForm.name, "Package name")],
+    ["name", pkgForm.name.trim() ? validators.minLength(pkgForm.name, 3, "Package name") : ""],
+    ["sellingPrice", validators.positiveNumber(pkgForm.sellingPrice, "Selling price")],
+    ["agentPrice", validators.positiveNumber(pkgForm.agentPrice, "Agent price")],
+    ["durationDays", validators.numberRange(pkgForm.durationDays, 1, 365, "Duration")],
+  ]);
 
   const pkgTotalCost = useMemo(() => {
     return pkgForm.airlineCost + pkgForm.visaCost + pkgForm.hotelMadinaCost + pkgForm.hotelMakkahCost + pkgForm.transportCost + pkgForm.foodCost + pkgForm.otherCost;
@@ -46,24 +56,13 @@ export default function Umrah() {
   const pkgProfit = pkgForm.sellingPrice - pkgTotalCost;
   const agentProfit = pkgForm.agentPrice - pkgTotalCost;
 
-  const openAddPkg = () => {
-    setEditPkgId(null);
-    setPkgForm(emptyPackage);
-    setPkgModal(true);
-  };
-
-  const openEditPkg = (p: UmrahPackage) => {
-    setEditPkgId(p.id);
-    const { id, ...rest } = p;
-    setPkgForm(rest);
-    setPkgModal(true);
-  };
+  const openAddPkg = () => { setEditPkgId(null); setPkgForm(emptyPackage); setPkgErrors({}); setPkgModal(true); };
+  const openEditPkg = (p: UmrahPackage) => { setEditPkgId(p.id); const { id, ...rest } = p; setPkgForm(rest); setPkgErrors({}); setPkgModal(true); };
 
   const savePkg = () => {
-    if (!pkgForm.name) {
-      showToast("Please enter a package name", "error");
-      return;
-    }
+    const errors = validatePkg();
+    setPkgErrors(errors);
+    if (hasErrors(errors)) { showToast("Please fix the errors", "error"); return; }
     if (editPkgId) {
       setUmrahPackages(umrahPackages.map((p) => (p.id === editPkgId ? { ...pkgForm, id: editPkgId } : p)));
       showToast("Package updated successfully");
@@ -93,9 +92,11 @@ export default function Umrah() {
           <h1 className="section-title">Umrah Module</h1>
           <p className="text-navy-400 text-sm mt-1">Manage Umrah packages with dynamic cost components</p>
         </div>
-        <button onClick={openAddPkg} className="btn-primary">
-          <Plus className="w-4 h-4" /> Add Package
-        </button>
+        {isAdmin && (
+          <button onClick={openAddPkg} className="btn-primary">
+            <Plus className="w-4 h-4" /> Add Package
+          </button>
+        )}
       </div>
 
       {/* Package cards */}
@@ -109,14 +110,16 @@ export default function Umrah() {
                 <div className="w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center text-primary-600">
                   <Globe className="w-6 h-6" />
                 </div>
-                <div className="flex gap-1">
-                  <button onClick={() => openEditPkg(p)} className="text-navy-400 hover:text-primary-600 p-1.5 rounded-lg hover:bg-primary-50">
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => deletePkg(p.id)} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+                {isAdmin && (
+                  <div className="flex gap-1">
+                    <button onClick={() => openEditPkg(p)} className="text-navy-400 hover:text-primary-600 p-1.5 rounded-lg hover:bg-primary-50">
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => deletePkg(p.id)} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
               <h3 className="font-display font-bold text-navy-900 text-lg">{p.name}</h3>
               <p className="text-xs text-navy-400 mb-3">{p.durationDays} days · {p.description}</p>
@@ -162,11 +165,13 @@ export default function Umrah() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Package Name</label>
-              <input className="input" value={pkgForm.name} onChange={(e) => setPkgForm({ ...pkgForm, name: e.target.value })} placeholder="e.g. Umrah Deluxe 15 Days" />
+              <input className={inputClass("input", pkgErrors.name)} value={pkgForm.name} onChange={(e) => setPkgForm({ ...pkgForm, name: e.target.value })} placeholder="e.g. Umrah Deluxe 15 Days" />
+              <FieldError error={pkgErrors.name} />
             </div>
             <div>
               <label className="label">Duration (days)</label>
-              <input type="number" className="input" value={pkgForm.durationDays || ""} onChange={(e) => setPkgForm({ ...pkgForm, durationDays: Number(e.target.value) })} />
+              <input type="number" min="1" max="365" className={inputClass("input", pkgErrors.durationDays)} value={pkgForm.durationDays || ""} onChange={(e) => setPkgForm({ ...pkgForm, durationDays: Number(e.target.value) })} />
+              <FieldError error={pkgErrors.durationDays} />
             </div>
           </div>
           <div>
@@ -260,11 +265,13 @@ export default function Umrah() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Customer Selling Price</label>
-              <input type="number" className="input" value={pkgForm.sellingPrice || ""} onChange={(e) => setPkgForm({ ...pkgForm, sellingPrice: Number(e.target.value) })} />
+              <input type="number" min="0" className={inputClass("input", pkgErrors.sellingPrice)} value={pkgForm.sellingPrice || ""} onChange={(e) => setPkgForm({ ...pkgForm, sellingPrice: Number(e.target.value) })} />
+              <FieldError error={pkgErrors.sellingPrice} />
             </div>
             <div>
               <label className="label">Agent Price</label>
-              <input type="number" className="input" value={pkgForm.agentPrice || ""} onChange={(e) => setPkgForm({ ...pkgForm, agentPrice: Number(e.target.value) })} />
+              <input type="number" min="0" className={inputClass("input", pkgErrors.agentPrice)} value={pkgForm.agentPrice || ""} onChange={(e) => setPkgForm({ ...pkgForm, agentPrice: Number(e.target.value) })} />
+              <FieldError error={pkgErrors.agentPrice} />
             </div>
           </div>
 

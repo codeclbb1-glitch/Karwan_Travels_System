@@ -5,6 +5,7 @@ import Modal from "../components/Modal";
 import StatCard from "../components/StatCard";
 import { formatPKR, formatPKRShort, formatDate } from "../data";
 import type { Investment } from "../types";
+import { validators, collectErrors, hasErrors, FieldError, inputClass, type FieldErrors } from "../lib/validation";
 
 export default function Investments() {
   const { investments, setInvestments, showToast } = useApp();
@@ -17,19 +18,27 @@ export default function Investments() {
     date: new Date().toISOString().slice(0, 10),
     notes: "",
   });
+  const [formErrors, setFormErrors] = useState<FieldErrors>({});
+
+  const validate = () => collectErrors([
+    ["name", validators.required(form.name, "Investment name")],
+    ["amountInvested", validators.positiveNumber(form.amountInvested, "Amount invested")],
+    ["ownershipPercent", validators.percentage(form.ownershipPercent, "Ownership %")],
+    ["date", validators.dateRequired(form.date, "Date")],
+  ]);
 
   const totalInvested = useMemo(() => investments.reduce((s, i) => s + i.amountInvested, 0), [investments]);
 
   const openAdd = () => {
     setForm({ name: "", ownershipPercent: 0, amountInvested: 0, date: new Date().toISOString().slice(0, 10), notes: "" });
+    setFormErrors({});
     setModal(true);
   };
 
   const save = () => {
-    if (!form.name || form.amountInvested <= 0) {
-      showToast("Please fill in name and amount", "error");
-      return;
-    }
+    const errors = validate();
+    setFormErrors(errors);
+    if (hasErrors(errors)) { showToast("Please fix the errors", "error"); return; }
     setInvestments([{ ...form, id: "inv" + Date.now() }, ...investments]);
     showToast("Investment added successfully");
     setModal(false);
@@ -89,21 +98,25 @@ export default function Investments() {
         <div className="space-y-4">
           <div>
             <label className="label">Investment Name</label>
-            <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Travel Valley Resort" />
+            <input className={inputClass("input", formErrors.name)} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Travel Valley Resort" />
+            <FieldError error={formErrors.name} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">Ownership (%)</label>
-              <input type="number" className="input" value={form.ownershipPercent || ""} onChange={(e) => setForm({ ...form, ownershipPercent: Number(e.target.value) })} />
+              <input type="number" min="0" max="100" className={inputClass("input", formErrors.ownershipPercent)} value={form.ownershipPercent || ""} onChange={(e) => setForm({ ...form, ownershipPercent: Number(e.target.value) })} />
+              <FieldError error={formErrors.ownershipPercent} />
             </div>
             <div>
               <label className="label">Amount Invested (PKR)</label>
-              <input type="number" className="input" value={form.amountInvested || ""} onChange={(e) => setForm({ ...form, amountInvested: Number(e.target.value) })} />
+              <input type="number" min="0" className={inputClass("input", formErrors.amountInvested)} value={form.amountInvested || ""} onChange={(e) => setForm({ ...form, amountInvested: Number(e.target.value) })} />
+              <FieldError error={formErrors.amountInvested} />
             </div>
           </div>
           <div>
             <label className="label">Date</label>
-            <input type="date" className="input" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+            <input type="date" className={inputClass("input", formErrors.date)} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+            <FieldError error={formErrors.date} />
           </div>
           <div>
             <label className="label">Notes</label>

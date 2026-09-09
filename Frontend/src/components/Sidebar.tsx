@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -13,6 +14,8 @@ import {
   Settings,
   LogOut,
   X,
+  Users,
+  AlertTriangle,
 } from "lucide-react";
 import { useApp } from "../context";
 
@@ -24,6 +27,8 @@ interface SidebarProps {
 export default function Sidebar({ open, onClose }: SidebarProps) {
   const { role, logout } = useApp();
   const isAdmin = role === "admin";
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   const navItems = [
     { to: "/", label: "Dashboard", icon: LayoutDashboard, show: true },
@@ -35,9 +40,20 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
     { to: "/finance", label: "Finance", icon: Wallet, show: isAdmin },
     { to: "/investments", label: "Investments", icon: TrendingUp, show: isAdmin },
     { to: "/office-expenses", label: "Office Expenses", icon: Building2, show: isAdmin },
+    { to: "/users", label: "User Management", icon: Users, show: isAdmin },
     { to: "/inventory", label: "Inventory", icon: Package, show: true },
     { to: "/settings", label: "Settings", icon: Settings, show: true },
   ].filter((item) => item.show);
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    try {
+      await logout();
+    } finally {
+      setSigningOut(false);
+      setConfirmOpen(false);
+    }
+  };
 
   return (
     <>
@@ -89,7 +105,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         {/* Footer */}
         <div className="px-3 py-4 border-t border-navy-100">
           <button
-            onClick={logout}
+            onClick={() => setConfirmOpen(true)}
             className="sidebar-link w-full text-red-500 hover:bg-red-50"
           >
             <LogOut className="w-5 h-5 flex-shrink-0" />
@@ -97,6 +113,54 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           </button>
         </div>
       </aside>
+
+      {/* Sign-out confirmation modal */}
+      {confirmOpen && (
+        <div className="modal-overlay" onClick={() => !signingOut && setConfirmOpen(false)}>
+          <div
+            className="modal-panel w-full max-w-sm p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center">
+                <AlertTriangle className="w-7 h-7 text-red-500" />
+              </div>
+              <div>
+                <h3 className="font-display font-bold text-navy-900 text-lg">Sign Out?</h3>
+                <p className="text-navy-400 text-sm mt-1">
+                  You will be returned to the login screen. Any unsaved changes will be lost.
+                </p>
+              </div>
+              <div className="flex gap-3 w-full pt-1">
+                <button
+                  onClick={() => setConfirmOpen(false)}
+                  disabled={signingOut}
+                  className="btn-outline flex-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => void handleSignOut()}
+                  disabled={signingOut}
+                  className="btn-danger flex-1"
+                >
+                  {signingOut ? (
+                    <span className="flex items-center gap-2">
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Signing out...
+                    </span>
+                  ) : (
+                    <>
+                      <LogOut className="w-4 h-4" />
+                      Sign Out
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

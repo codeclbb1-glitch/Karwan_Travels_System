@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { AppProvider, useApp } from "./context";
+import { useApp } from "./context";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -13,6 +13,7 @@ import Investments from "./pages/Investments";
 import OfficeExpenses from "./pages/OfficeExpenses";
 import Inventory from "./pages/Inventory";
 import Settings from "./pages/Settings";
+import UserManagement from "./pages/UserManagement";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { role, authLoading } = useApp();
@@ -49,6 +50,7 @@ function AppRoutes() {
         <Route path="finance" element={<AdminRoute><Finance /></AdminRoute>} />
         <Route path="investments" element={<AdminRoute><Investments /></AdminRoute>} />
         <Route path="office-expenses" element={<AdminRoute><OfficeExpenses /></AdminRoute>} />
+        <Route path="users" element={<AdminRoute><UserManagement /></AdminRoute>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
@@ -56,9 +58,5 @@ function AppRoutes() {
 }
 
 export default function App() {
-  return (
-    <AppProvider>
-      <AppRoutes />
-    </AppProvider>
-  );
+  return <AppRoutes />;
 }

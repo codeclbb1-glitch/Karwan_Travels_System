@@ -40,7 +40,7 @@ interface AppContextValue {
   bookings: Booking[];
   setBookings: (b: Booking[]) => void;
   ledger: LedgerEntry[];
-  setLedger: (l: LedgerEntry[]) => void;
+  setLedger: (l: LedgerEntry[]) => Promise<void>;
   investments: Investment[];
   setInvestments: (i: Investment[]) => void;
   officeExpenses: OfficeExpense[];
@@ -99,8 +99,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }).finally(() => {
       if (mounted) setAuthLoading(false);
     });
-    const { data: listener } = supabase.auth.onAuthStateChange(() => {
-      if (!supabase.auth) return;
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+      if (!session) {
+        setRole(null);
+        setHajjFormBatchesState([]);
+        setHajjPackagesState([]);
+        setUmrahPackagesState([]);
+        setBookingsState([]);
+        setLedgerState([]);
+        setInvestmentsState([]);
+        setOfficeExpensesState([]);
+        setAirlineTicketsState([]);
+        setHotelAllocationsState([]);
+        return;
+      }
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        try {
+          const profile = await authApi.profile();
+          if (!mounted) return;
+          setRole(profile.role);
+          await loadData(profile.role);
+        } catch {
+          if (mounted) setRole(null);
+        }
+      }
     });
     return () => { mounted = false; listener.subscription.unsubscribe(); };
   }, [loadData]);
@@ -132,7 +155,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setHajjPackages = useCallback((items: HajjPackage[]) => { setHajjPackagesState(items); void dataApi.saveHajjPackages(items); }, []);
   const setUmrahPackages = useCallback((items: UmrahPackage[]) => { setUmrahPackagesState(items); void dataApi.saveUmrahPackages(items); }, []);
   const setBookings = useCallback((items: Booking[]) => { setBookingsState(items); }, []);
-  const setLedger = useCallback((items: LedgerEntry[]) => { setLedgerState(items); }, []);
+  const setLedger = useCallback(async (items: LedgerEntry[]) => {
+    setLedgerState(items);
+    await dataApi.saveLedger(items);
+    if (role) {
+      const loaded = await dataApi.load(role);
+      setLedgerState(loaded.ledger);
+    }
+  }, [role]);
   const setInvestments = useCallback((items: Investment[]) => { setInvestmentsState(items); void dataApi.saveInvestments(items); }, []);
   const setOfficeExpenses = useCallback((items: OfficeExpense[]) => { setOfficeExpensesState(items); void dataApi.saveExpenses(items); }, []);
   const setAirlineTickets = useCallback((items: AirlineTicketBatch[]) => { setAirlineTicketsState(items); void dataApi.saveAirline(items); }, []);

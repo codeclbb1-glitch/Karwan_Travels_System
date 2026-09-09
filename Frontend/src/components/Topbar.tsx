@@ -1,5 +1,8 @@
-import { Menu, Bell, Shield, User } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Menu, Shield, User, Settings } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useApp } from "../context";
+import { authApi } from "../lib/api";
 
 interface TopbarProps {
   onMenuClick: () => void;
@@ -7,7 +10,21 @@ interface TopbarProps {
 
 export default function Topbar({ onMenuClick }: TopbarProps) {
   const { role } = useApp();
+  const navigate = useNavigate();
   const isAdmin = role === "admin";
+
+  const [fullName, setFullName] = useState("");
+
+  useEffect(() => {
+    void authApi.profile().then((p) => setFullName(p.full_name)).catch(() => {});
+  }, []);
+
+  const initials = fullName
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join("") || (isAdmin ? "SA" : "ST");
 
   return (
     <header className="sticky top-0 z-20 bg-white border-b border-navy-100 px-4 lg:px-6 py-3 flex items-center justify-between">
@@ -36,13 +53,20 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
           {isAdmin ? <Shield className="w-3.5 h-3.5" /> : <User className="w-3.5 h-3.5" />}
           {isAdmin ? "Super Admin" : "Staff"}
         </div>
-        <button className="relative text-navy-500 hover:bg-navy-100 rounded-lg p-2 transition-colors">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-gold-500 rounded-full"></span>
+
+        {fullName && (
+          <span className="hidden sm:block text-sm font-medium text-navy-700 max-w-[140px] truncate">
+            {fullName}
+          </span>
+        )}
+
+        <button
+          onClick={() => navigate("/settings")}
+          title="Settings"
+          className="w-9 h-9 rounded-full bg-primary-700 flex items-center justify-center text-white font-semibold text-sm hover:bg-primary-800 transition-colors"
+        >
+          {initials}
         </button>
-        <div className="w-9 h-9 rounded-full bg-navy-200 flex items-center justify-center text-navy-700 font-semibold text-sm">
-          {isAdmin ? "SA" : "ST"}
-        </div>
       </div>
     </header>
   );

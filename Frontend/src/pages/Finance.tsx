@@ -5,15 +5,8 @@ import Modal from "../components/Modal";
 import StatCard from "../components/StatCard";
 import { formatPKR, formatPKRShort, formatDate } from "../data";
 import type { LedgerEntry } from "../types";
-import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-} from "recharts";
+import { validators, collectErrors, hasErrors, FieldError, inputClass } from "../lib/validation";
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 
 export default function Finance() {
   const { ledger, setLedger, showToast } = useApp();
@@ -47,19 +40,32 @@ export default function Finance() {
     setModal(true);
   };
 
-  const save = () => {
-    if (!form.category || form.amount <= 0) {
-      showToast("Please fill in category and amount", "error");
+  const save = async () => {
+    const errors = collectErrors([
+      ["category", validators.required(form.category, "Category")],
+      ["amount", validators.positiveNumber(form.amount, "Amount")],
+      ["date", validators.dateRequired(form.date, "Date")],
+    ]);
+    if (hasErrors(errors)) {
+      showToast(Object.values(errors)[0], "error");
       return;
     }
-    setLedger([{ ...form, id: "le" + Date.now() }, ...ledger]);
-    showToast("Entry added successfully");
-    setModal(false);
+    try {
+      await setLedger([{ ...form, id: "le" + Date.now() }, ...ledger]);
+      showToast("Entry added successfully");
+      setModal(false);
+    } catch {
+      showToast("Failed to save entry", "error");
+    }
   };
 
-  const remove = (id: string) => {
-    setLedger(ledger.filter((e) => e.id !== id));
-    showToast("Entry removed", "info");
+  const remove = async (id: string) => {
+    try {
+      await setLedger(ledger.filter((e) => e.id !== id));
+      showToast("Entry removed", "info");
+    } catch {
+      showToast("Failed to remove entry", "error");
+    }
   };
 
   return (
@@ -134,7 +140,7 @@ export default function Finance() {
                     {e.type === "income" ? "+" : "−"}{formatPKR(e.amount)}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <button onClick={() => remove(e.id)} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
+                    <button onClick={() => void remove(e.id)} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </td>
@@ -188,7 +194,7 @@ export default function Finance() {
           </div>
           <div className="flex gap-3 justify-end">
             <button onClick={() => setModal(false)} className="btn-outline">Cancel</button>
-            <button onClick={save} className="btn-primary">Save Entry</button>
+            <button onClick={() => void save()} className="btn-primary">Save Entry</button>
           </div>
         </div>
       </Modal>

@@ -4,19 +4,8 @@ import { useApp } from "../context";
 import Modal from "../components/Modal";
 import { formatPKR, formatPKRShort } from "../data";
 import type { OfficeExpense, OfficeExpenseCategory } from "../types";
-import {
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip,
-  Legend,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-} from "recharts";
+import { validators, collectErrors, hasErrors, FieldError, inputClass } from "../lib/validation";
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 
 const categories: OfficeExpenseCategory[] = ["Salaries", "Bills", "Rent", "Food", "Miscellaneous"];
 const categoryColors: Record<string, string> = {
@@ -86,8 +75,12 @@ export default function OfficeExpenses() {
   };
 
   const save = () => {
-    if (form.amount <= 0) {
-      showToast("Please enter an amount", "error");
+    const errors = collectErrors([
+      ["amount", validators.positiveNumber(form.amount, "Amount")],
+      ["date", validators.dateRequired(form.date, "Date")],
+    ]);
+    if (hasErrors(errors)) {
+      showToast(Object.values(errors)[0], "error");
       return;
     }
     setOfficeExpenses([{ ...form, id: "oe" + Date.now() }, ...officeExpenses]);

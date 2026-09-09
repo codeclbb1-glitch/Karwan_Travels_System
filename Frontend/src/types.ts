@@ -61,7 +61,7 @@ export interface Booking {
   nextOfKin: string;
   nextOfKinPhone: string;
   serviceType: ServiceType;
-  packageId: string;
+  packageId: string;         // empty string for custom bookings
   packageName: string;
   selectedInclusions: string[];
   finalPrice: number;
@@ -69,6 +69,10 @@ export interface Booking {
   advanceAmount: number;
   bookingDate: string;
   departureDate: string;
+  isCustom?: boolean;
+  customPackageName?: string;
+  customPrice?: number;
+  customLineItems?: { label: string; price: number }[];
 }
 
 export interface LedgerEntry {

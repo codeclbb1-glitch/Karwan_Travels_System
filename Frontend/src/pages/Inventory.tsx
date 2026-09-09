@@ -4,6 +4,7 @@ import { useApp } from "../context";
 import Modal from "../components/Modal";
 import { formatPKR, formatDate } from "../data";
 import type { AirlineTicketBatch, HotelAllocation } from "../types";
+import { validators, collectErrors, hasErrors, FieldError, inputClass, type FieldErrors } from "../lib/validation";
 
 type Tab = "airline" | "hotel";
 
@@ -40,26 +41,38 @@ export default function Inventory() {
 
   const [airForm, setAirForm] = useState<Omit<AirlineTicketBatch, "id">>(emptyAir);
   const [hotelForm, setHotelForm] = useState<Omit<HotelAllocation, "id">>(emptyHotel);
+  const [airErrors, setAirErrors] = useState<FieldErrors>({});
+  const [hotelErrors, setHotelErrors] = useState<FieldErrors>({});
 
-  // Airline handlers
-  const openAddAir = () => {
-    setEditAirId(null);
-    setAirForm(emptyAir);
-    setAirModal(true);
-  };
+  const validateAir = () => collectErrors([
+    ["airline", validators.required(airForm.airline, "Airline name")],
+    ["route", validators.required(airForm.route, "Route")],
+    ["quantity", validators.positiveNumber(airForm.quantity, "Quantity")],
+    ["costPerTicket", validators.nonNegativeNumber(airForm.costPerTicket, "Cost per ticket")],
+    ["travelDate", validators.dateRequired(airForm.travelDate, "Travel date")],
+    ["returnDate", validators.dateRequired(airForm.returnDate, "Return date")],
+    ["returnDate", validators.dateOrder(airForm.travelDate, airForm.returnDate, "Travel date", "Return date")],
+    ["sold", airForm.sold > airForm.quantity ? "Sold cannot exceed quantity" : ""],
+  ]);
 
-  const openEditAir = (a: AirlineTicketBatch) => {
-    setEditAirId(a.id);
-    const { id, ...rest } = a;
-    setAirForm(rest);
-    setAirModal(true);
-  };
+  const validateHotel = () => collectErrors([
+    ["hotelName", validators.required(hotelForm.hotelName, "Hotel name")],
+    ["roomType", validators.required(hotelForm.roomType, "Room type")],
+    ["quantity", validators.positiveNumber(hotelForm.quantity, "Quantity")],
+    ["costPerNight", validators.nonNegativeNumber(hotelForm.costPerNight, "Cost per night")],
+    ["checkIn", validators.dateRequired(hotelForm.checkIn, "Check-in date")],
+    ["checkOut", validators.dateRequired(hotelForm.checkOut, "Check-out date")],
+    ["checkOut", validators.dateOrder(hotelForm.checkIn, hotelForm.checkOut, "Check-in", "Check-out")],
+    ["booked", hotelForm.booked > hotelForm.quantity ? "Booked cannot exceed quantity" : ""],
+  ]);
+
+  const openAddAir = () => { setEditAirId(null); setAirForm(emptyAir); setAirErrors({}); setAirModal(true); };
+  const openEditAir = (a: AirlineTicketBatch) => { setEditAirId(a.id); const { id, ...rest } = a; setAirForm(rest); setAirErrors({}); setAirModal(true); };
 
   const saveAir = () => {
-    if (!airForm.airline || !airForm.route) {
-      showToast("Please fill in airline and route", "error");
-      return;
-    }
+    const errors = validateAir();
+    setAirErrors(errors);
+    if (hasErrors(errors)) { showToast("Please fix the errors", "error"); return; }
     if (editAirId) {
       setAirlineTickets(airlineTickets.map((a) => (a.id === editAirId ? { ...airForm, id: editAirId } : a)));
       showToast("Ticket batch updated");
@@ -70,30 +83,15 @@ export default function Inventory() {
     setAirModal(false);
   };
 
-  const deleteAir = (id: string) => {
-    setAirlineTickets(airlineTickets.filter((a) => a.id !== id));
-    showToast("Ticket batch removed", "info");
-  };
+  const deleteAir = (id: string) => { setAirlineTickets(airlineTickets.filter((a) => a.id !== id)); showToast("Ticket batch removed", "info"); };
 
-  // Hotel handlers
-  const openAddHotel = () => {
-    setEditHotelId(null);
-    setHotelForm(emptyHotel);
-    setHotelModal(true);
-  };
-
-  const openEditHotel = (h: HotelAllocation) => {
-    setEditHotelId(h.id);
-    const { id, ...rest } = h;
-    setHotelForm(rest);
-    setHotelModal(true);
-  };
+  const openAddHotel = () => { setEditHotelId(null); setHotelForm(emptyHotel); setHotelErrors({}); setHotelModal(true); };
+  const openEditHotel = (h: HotelAllocation) => { setEditHotelId(h.id); const { id, ...rest } = h; setHotelForm(rest); setHotelErrors({}); setHotelModal(true); };
 
   const saveHotel = () => {
-    if (!hotelForm.hotelName) {
-      showToast("Please fill in hotel name", "error");
-      return;
-    }
+    const errors = validateHotel();
+    setHotelErrors(errors);
+    if (hasErrors(errors)) { showToast("Please fix the errors", "error"); return; }
     if (editHotelId) {
       setHotelAllocations(hotelAllocations.map((h) => (h.id === editHotelId ? { ...hotelForm, id: editHotelId } : h)));
       showToast("Hotel allocation updated");
@@ -104,10 +102,7 @@ export default function Inventory() {
     setHotelModal(false);
   };
 
-  const deleteHotel = (id: string) => {
-    setHotelAllocations(hotelAllocations.filter((h) => h.id !== id));
-    showToast("Hotel allocation removed", "info");
-  };
+  const deleteHotel = (id: string) => { setHotelAllocations(hotelAllocations.filter((h) => h.id !== id)); showToast("Hotel allocation removed", "info"); };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -289,35 +284,42 @@ export default function Inventory() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">Airline Name</label>
-              <input className="input" value={airForm.airline} onChange={(e) => setAirForm({ ...airForm, airline: e.target.value })} placeholder="e.g. Saudi Airlines" />
+              <input className={inputClass("input", airErrors.airline)} value={airForm.airline} onChange={(e) => setAirForm({ ...airForm, airline: e.target.value })} placeholder="e.g. Saudi Airlines" />
+              <FieldError error={airErrors.airline} />
             </div>
             <div>
               <label className="label">Route</label>
-              <input className="input" value={airForm.route} onChange={(e) => setAirForm({ ...airForm, route: e.target.value })} placeholder="e.g. Lahore → Jeddah" />
+              <input className={inputClass("input", airErrors.route)} value={airForm.route} onChange={(e) => setAirForm({ ...airForm, route: e.target.value })} placeholder="e.g. Lahore → Jeddah" />
+              <FieldError error={airErrors.route} />
             </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <div>
               <label className="label">Quantity</label>
-              <input type="number" className="input" value={airForm.quantity || ""} onChange={(e) => setAirForm({ ...airForm, quantity: Number(e.target.value) })} />
+              <input type="number" min="1" className={inputClass("input", airErrors.quantity)} value={airForm.quantity || ""} onChange={(e) => setAirForm({ ...airForm, quantity: Number(e.target.value) })} />
+              <FieldError error={airErrors.quantity} />
             </div>
             <div>
               <label className="label">Cost / Ticket</label>
-              <input type="number" className="input" value={airForm.costPerTicket || ""} onChange={(e) => setAirForm({ ...airForm, costPerTicket: Number(e.target.value) })} />
+              <input type="number" min="0" className={inputClass("input", airErrors.costPerTicket)} value={airForm.costPerTicket || ""} onChange={(e) => setAirForm({ ...airForm, costPerTicket: Number(e.target.value) })} />
+              <FieldError error={airErrors.costPerTicket} />
             </div>
             <div>
               <label className="label">Sold</label>
-              <input type="number" className="input" value={airForm.sold || ""} onChange={(e) => setAirForm({ ...airForm, sold: Number(e.target.value) })} />
+              <input type="number" min="0" className={inputClass("input", airErrors.sold)} value={airForm.sold || ""} onChange={(e) => setAirForm({ ...airForm, sold: Number(e.target.value) })} />
+              <FieldError error={airErrors.sold} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">Travel Date</label>
-              <input type="date" className="input" value={airForm.travelDate} onChange={(e) => setAirForm({ ...airForm, travelDate: e.target.value })} />
+              <input type="date" className={inputClass("input", airErrors.travelDate)} value={airForm.travelDate} onChange={(e) => setAirForm({ ...airForm, travelDate: e.target.value })} />
+              <FieldError error={airErrors.travelDate} />
             </div>
             <div>
               <label className="label">Return Date</label>
-              <input type="date" className="input" value={airForm.returnDate} onChange={(e) => setAirForm({ ...airForm, returnDate: e.target.value })} />
+              <input type="date" className={inputClass("input", airErrors.returnDate)} value={airForm.returnDate} onChange={(e) => setAirForm({ ...airForm, returnDate: e.target.value })} />
+              <FieldError error={airErrors.returnDate} />
             </div>
           </div>
           <div className="flex gap-3 justify-end">
@@ -333,7 +335,8 @@ export default function Inventory() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">Hotel Name</label>
-              <input className="input" value={hotelForm.hotelName} onChange={(e) => setHotelForm({ ...hotelForm, hotelName: e.target.value })} placeholder="e.g. Makkah Hilton" />
+              <input className={inputClass("input", hotelErrors.hotelName)} value={hotelForm.hotelName} onChange={(e) => setHotelForm({ ...hotelForm, hotelName: e.target.value })} placeholder="e.g. Makkah Hilton" />
+              <FieldError error={hotelErrors.hotelName} />
             </div>
             <div>
               <label className="label">City</label>
@@ -346,30 +349,36 @@ export default function Inventory() {
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <div>
               <label className="label">Room Type</label>
-              <input className="input" value={hotelForm.roomType} onChange={(e) => setHotelForm({ ...hotelForm, roomType: e.target.value })} placeholder="e.g. Triple" />
+              <input className={inputClass("input", hotelErrors.roomType)} value={hotelForm.roomType} onChange={(e) => setHotelForm({ ...hotelForm, roomType: e.target.value })} placeholder="e.g. Triple" />
+              <FieldError error={hotelErrors.roomType} />
             </div>
             <div>
               <label className="label">Quantity</label>
-              <input type="number" className="input" value={hotelForm.quantity || ""} onChange={(e) => setHotelForm({ ...hotelForm, quantity: Number(e.target.value) })} />
+              <input type="number" min="1" className={inputClass("input", hotelErrors.quantity)} value={hotelForm.quantity || ""} onChange={(e) => setHotelForm({ ...hotelForm, quantity: Number(e.target.value) })} />
+              <FieldError error={hotelErrors.quantity} />
             </div>
             <div>
               <label className="label">Cost / Night</label>
-              <input type="number" className="input" value={hotelForm.costPerNight || ""} onChange={(e) => setHotelForm({ ...hotelForm, costPerNight: Number(e.target.value) })} />
+              <input type="number" min="0" className={inputClass("input", hotelErrors.costPerNight)} value={hotelForm.costPerNight || ""} onChange={(e) => setHotelForm({ ...hotelForm, costPerNight: Number(e.target.value) })} />
+              <FieldError error={hotelErrors.costPerNight} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">Check-in</label>
-              <input type="date" className="input" value={hotelForm.checkIn} onChange={(e) => setHotelForm({ ...hotelForm, checkIn: e.target.value })} />
+              <input type="date" className={inputClass("input", hotelErrors.checkIn)} value={hotelForm.checkIn} onChange={(e) => setHotelForm({ ...hotelForm, checkIn: e.target.value })} />
+              <FieldError error={hotelErrors.checkIn} />
             </div>
             <div>
               <label className="label">Check-out</label>
-              <input type="date" className="input" value={hotelForm.checkOut} onChange={(e) => setHotelForm({ ...hotelForm, checkOut: e.target.value })} />
+              <input type="date" className={inputClass("input", hotelErrors.checkOut)} value={hotelForm.checkOut} onChange={(e) => setHotelForm({ ...hotelForm, checkOut: e.target.value })} />
+              <FieldError error={hotelErrors.checkOut} />
             </div>
           </div>
           <div>
             <label className="label">Booked</label>
-            <input type="number" className="input" value={hotelForm.booked || ""} onChange={(e) => setHotelForm({ ...hotelForm, booked: Number(e.target.value) })} />
+            <input type="number" min="0" className={inputClass("input", hotelErrors.booked)} value={hotelForm.booked || ""} onChange={(e) => setHotelForm({ ...hotelForm, booked: Number(e.target.value) })} />
+            <FieldError error={hotelErrors.booked} />
           </div>
           <div className="flex gap-3 justify-end">
             <button onClick={() => setHotelModal(false)} className="btn-outline">Cancel</button>

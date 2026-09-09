@@ -4,6 +4,7 @@ import { useApp } from "../context";
 import Modal from "../components/Modal";
 import { formatPKR, formatDate } from "../data";
 import type { HajjFormBatch, HajjPackage, TransportType, PackageMode } from "../types";
+import { validators, collectErrors, hasErrors, FieldError, inputClass, type FieldErrors } from "../lib/validation";
 
 const emptyBatch: Omit<HajjFormBatch, "id"> = {
   batchName: "",
@@ -42,6 +43,25 @@ export default function Hajj() {
   const [editPkgId, setEditPkgId] = useState<string | null>(null);
   const [batchForm, setBatchForm] = useState<Omit<HajjFormBatch, "id">>(emptyBatch);
   const [pkgForm, setPkgForm] = useState<Omit<HajjPackage, "id">>(emptyPackage);
+  const [batchErrors, setBatchErrors] = useState<FieldErrors>({});
+  const [pkgErrors, setPkgErrors] = useState<FieldErrors>({});
+
+  const validateBatch = () => collectErrors([
+    ["batchName", validators.required(batchForm.batchName, "Batch name")],
+    ["quantity", validators.positiveNumber(batchForm.quantity, "Quantity")],
+    ["pricePerForm", validators.positiveNumber(batchForm.pricePerForm, "Price per form")],
+    ["datePurchased", validators.dateRequired(batchForm.datePurchased, "Date purchased")],
+    ["used", batchForm.used > batchForm.quantity ? "Used cannot exceed quantity" : ""],
+  ]);
+
+  const validatePkg = () => collectErrors([
+    ["name", validators.required(pkgForm.name, "Package name")],
+    ["name", pkgForm.name.trim() ? validators.minLength(pkgForm.name, 3, "Package name") : ""],
+    ["sellingPrice", validators.positiveNumber(pkgForm.sellingPrice, "Selling price")],
+    ["agentPrice", validators.positiveNumber(pkgForm.agentPrice, "Agent price")],
+    ["durationDays", validators.numberRange(pkgForm.durationDays, 1, 365, "Duration")],
+    ["formsRemaining", validators.nonNegativeNumber(pkgForm.formsRemaining, "Forms remaining")],
+  ]);
 
   const batchTotalCost = batchForm.quantity * batchForm.pricePerForm;
 
@@ -52,24 +72,14 @@ export default function Hajj() {
   const pkgProfit = pkgForm.sellingPrice - pkgTotalCost;
   const agentProfit = pkgForm.agentPrice - pkgTotalCost;
 
-  const openAddBatch = () => {
-    setEditBatchId(null);
-    setBatchForm(emptyBatch);
-    setBatchModal(true);
-  };
-
-  const openEditBatch = (b: HajjFormBatch) => {
-    setEditBatchId(b.id);
-    const { id, ...rest } = b;
-    setBatchForm(rest);
-    setBatchModal(true);
-  };
+  const openAddBatch = () => { setEditBatchId(null); setBatchForm(emptyBatch); setBatchErrors({}); setBatchModal(true); };
+  const openEditBatch = (b: HajjFormBatch) => { setEditBatchId(b.id); const { id, ...rest } = b; setBatchForm(rest); setBatchErrors({}); setBatchModal(true); };
+  const deleteBatch = (id: string) => { setHajjFormBatches(hajjFormBatches.filter((b) => b.id !== id)); showToast("Batch deleted", "info"); };
 
   const saveBatch = () => {
-    if (!batchForm.batchName || batchForm.quantity <= 0) {
-      showToast("Please fill in batch name and quantity", "error");
-      return;
-    }
+    const errors = validateBatch();
+    setBatchErrors(errors);
+    if (hasErrors(errors)) { showToast("Please fix the errors", "error"); return; }
     if (editBatchId) {
       setHajjFormBatches(hajjFormBatches.map((b) => (b.id === editBatchId ? { ...batchForm, id: editBatchId } : b)));
       showToast("Batch updated successfully");
@@ -80,29 +90,14 @@ export default function Hajj() {
     setBatchModal(false);
   };
 
-  const deleteBatch = (id: string) => {
-    setHajjFormBatches(hajjFormBatches.filter((b) => b.id !== id));
-    showToast("Batch deleted", "info");
-  };
-
-  const openAddPkg = () => {
-    setEditPkgId(null);
-    setPkgForm(emptyPackage);
-    setPkgModal(true);
-  };
-
-  const openEditPkg = (p: HajjPackage) => {
-    setEditPkgId(p.id);
-    const { id, ...rest } = p;
-    setPkgForm(rest);
-    setPkgModal(true);
-  };
+  const openAddPkg = () => { setEditPkgId(null); setPkgForm(emptyPackage); setPkgErrors({}); setPkgModal(true); };
+  const openEditPkg = (p: HajjPackage) => { setEditPkgId(p.id); const { id, ...rest } = p; setPkgForm(rest); setPkgErrors({}); setPkgModal(true); };
+  const deletePkg = (id: string) => { setHajjPackages(hajjPackages.filter((p) => p.id !== id)); showToast("Package deleted", "info"); };
 
   const savePkg = () => {
-    if (!pkgForm.name) {
-      showToast("Please enter a package name", "error");
-      return;
-    }
+    const errors = validatePkg();
+    setPkgErrors(errors);
+    if (hasErrors(errors)) { showToast("Please fix the errors", "error"); return; }
     if (editPkgId) {
       setHajjPackages(hajjPackages.map((p) => (p.id === editPkgId ? { ...pkgForm, id: editPkgId } : p)));
       showToast("Package updated successfully");
@@ -113,11 +108,6 @@ export default function Hajj() {
     setPkgModal(false);
   };
 
-  const deletePkg = (id: string) => {
-    setHajjPackages(hajjPackages.filter((p) => p.id !== id));
-    showToast("Package deleted", "info");
-  };
-
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -126,7 +116,7 @@ export default function Hajj() {
           <p className="text-navy-400 text-sm mt-1">Manage Hajj packages and government form batches</p>
         </div>
         <div className="flex gap-2">
-          {tab === "packages" && (
+          {tab === "packages" && isAdmin && (
             <button onClick={openAddPkg} className="btn-primary">
               <Plus className="w-4 h-4" /> Add Package
             </button>
@@ -208,12 +198,16 @@ export default function Hajj() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex justify-end gap-1">
-                          <button onClick={() => openEditPkg(p)} className="text-navy-400 hover:text-primary-600 p-1.5 rounded-lg hover:bg-primary-50">
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => deletePkg(p.id)} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {isAdmin && (
+                            <button onClick={() => openEditPkg(p)} className="text-navy-400 hover:text-primary-600 p-1.5 rounded-lg hover:bg-primary-50">
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                          )}
+                          {isAdmin && (
+                            <button onClick={() => deletePkg(p.id)} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -291,32 +285,35 @@ export default function Hajj() {
         <div className="space-y-4">
           <div>
             <label className="label">Batch Name</label>
-            <input className="input" value={batchForm.batchName} onChange={(e) => setBatchForm({ ...batchForm, batchName: e.target.value })} placeholder="e.g. Hajj 2025 Batch A" />
+            <input className={inputClass("input", batchErrors.batchName)} value={batchForm.batchName} onChange={(e) => setBatchForm({ ...batchForm, batchName: e.target.value })} placeholder="e.g. Hajj 2025 Batch A" />
+            <FieldError error={batchErrors.batchName} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">Quantity of Forms</label>
-              <input type="number" className="input" value={batchForm.quantity || ""} onChange={(e) => setBatchForm({ ...batchForm, quantity: Number(e.target.value) })} />
+              <input type="number" min="1" className={inputClass("input", batchErrors.quantity)} value={batchForm.quantity || ""} onChange={(e) => setBatchForm({ ...batchForm, quantity: Number(e.target.value) })} />
+              <FieldError error={batchErrors.quantity} />
             </div>
             <div>
               <label className="label">Price per Form (PKR)</label>
-              <input type="number" className="input" value={batchForm.pricePerForm || ""} onChange={(e) => setBatchForm({ ...batchForm, pricePerForm: Number(e.target.value) })} />
+              <input type="number" min="0" className={inputClass("input", batchErrors.pricePerForm)} value={batchForm.pricePerForm || ""} onChange={(e) => setBatchForm({ ...batchForm, pricePerForm: Number(e.target.value) })} />
+              <FieldError error={batchErrors.pricePerForm} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">Date Purchased</label>
-              <input type="date" className="input" value={batchForm.datePurchased} onChange={(e) => setBatchForm({ ...batchForm, datePurchased: e.target.value })} />
+              <input type="date" className={inputClass("input", batchErrors.datePurchased)} value={batchForm.datePurchased} onChange={(e) => setBatchForm({ ...batchForm, datePurchased: e.target.value })} />
+              <FieldError error={batchErrors.datePurchased} />
             </div>
             <div>
               <label className="label">Used (forms)</label>
-              <input type="number" className="input" value={batchForm.used || ""} onChange={(e) => setBatchForm({ ...batchForm, used: Number(e.target.value) })} />
+              <input type="number" min="0" className={inputClass("input", batchErrors.used)} value={batchForm.used || ""} onChange={(e) => setBatchForm({ ...batchForm, used: Number(e.target.value) })} />
+              <FieldError error={batchErrors.used} />
             </div>
           </div>
           <div className="bg-navy-50 rounded-xl p-4 flex items-center justify-between">
-            <span className="text-sm font-medium text-navy-600 flex items-center gap-2">
-              <Calculator className="w-4 h-4" /> Total Cost (auto)
-            </span>
+            <span className="text-sm font-medium text-navy-600 flex items-center gap-2"><Calculator className="w-4 h-4" /> Total Cost (auto)</span>
             <span className="text-lg font-bold text-navy-900">{formatPKR(batchTotalCost)}</span>
           </div>
           <div className="flex gap-3 justify-end">
@@ -332,7 +329,8 @@ export default function Hajj() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Package Name</label>
-              <input className="input" value={pkgForm.name} onChange={(e) => setPkgForm({ ...pkgForm, name: e.target.value })} placeholder="e.g. Hajj Premium 40 Days" />
+              <input className={inputClass("input", pkgErrors.name)} value={pkgForm.name} onChange={(e) => setPkgForm({ ...pkgForm, name: e.target.value })} placeholder="e.g. Hajj Premium 40 Days" />
+              <FieldError error={pkgErrors.name} />
             </div>
             <div>
               <label className="label">Package Mode</label>
@@ -342,32 +340,19 @@ export default function Hajj() {
               </select>
             </div>
           </div>
-
           <div>
             <label className="label">Description</label>
             <input className="input" value={pkgForm.description} onChange={(e) => setPkgForm({ ...pkgForm, description: e.target.value })} placeholder="Package description" />
           </div>
-
-          {/* Cost fields */}
           <div>
             <h4 className="text-sm font-semibold text-navy-700 mb-3">Cost Components (per pilgrim)</h4>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="label">Hotel Cost</label>
-                <input type="number" className="input" value={pkgForm.hotelCost || ""} onChange={(e) => setPkgForm({ ...pkgForm, hotelCost: Number(e.target.value) })} />
-              </div>
-              <div>
-                <label className="label">Ticket Cost</label>
-                <input type="number" className="input" value={pkgForm.ticketCost || ""} onChange={(e) => setPkgForm({ ...pkgForm, ticketCost: Number(e.target.value) })} />
-              </div>
-              <div>
-                <label className="label">Visa Cost</label>
-                <input type="number" className="input" value={pkgForm.visaCost || ""} onChange={(e) => setPkgForm({ ...pkgForm, visaCost: Number(e.target.value) })} />
-              </div>
-              <div>
-                <label className="label">Transport Cost</label>
-                <input type="number" className="input" value={pkgForm.transportCost || ""} onChange={(e) => setPkgForm({ ...pkgForm, transportCost: Number(e.target.value) })} />
-              </div>
+              {(["hotelCost", "ticketCost", "visaCost", "transportCost", "foodCost", "otherCost"] as const).map((field) => (
+                <div key={field}>
+                  <label className="label">{{ hotelCost: "Hotel Cost", ticketCost: "Ticket Cost", visaCost: "Visa Cost", transportCost: "Transport Cost", foodCost: "Food Cost", otherCost: "Other Expenses" }[field]}</label>
+                  <input type="number" min="0" className="input" value={pkgForm[field] || ""} onChange={(e) => setPkgForm({ ...pkgForm, [field]: Number(e.target.value) })} />
+                </div>
+              ))}
               <div>
                 <label className="label">Transport Type</label>
                 <select className="input" value={pkgForm.transportType} onChange={(e) => setPkgForm({ ...pkgForm, transportType: e.target.value as TransportType })}>
@@ -376,56 +361,34 @@ export default function Hajj() {
                 </select>
               </div>
               <div>
-                <label className="label">Food Cost</label>
-                <input type="number" className="input" value={pkgForm.foodCost || ""} onChange={(e) => setPkgForm({ ...pkgForm, foodCost: Number(e.target.value) })} />
-              </div>
-              <div>
-                <label className="label">Other Expenses</label>
-                <input type="number" className="input" value={pkgForm.otherCost || ""} onChange={(e) => setPkgForm({ ...pkgForm, otherCost: Number(e.target.value) })} />
-              </div>
-              <div>
                 <label className="label">Duration (days)</label>
-                <input type="number" className="input" value={pkgForm.durationDays || ""} onChange={(e) => setPkgForm({ ...pkgForm, durationDays: Number(e.target.value) })} />
+                <input type="number" min="1" max="365" className={inputClass("input", pkgErrors.durationDays)} value={pkgForm.durationDays || ""} onChange={(e) => setPkgForm({ ...pkgForm, durationDays: Number(e.target.value) })} />
+                <FieldError error={pkgErrors.durationDays} />
               </div>
               <div>
                 <label className="label">Forms Remaining</label>
-                <input type="number" className="input" value={pkgForm.formsRemaining || ""} onChange={(e) => setPkgForm({ ...pkgForm, formsRemaining: Number(e.target.value) })} />
+                <input type="number" min="0" className={inputClass("input", pkgErrors.formsRemaining)} value={pkgForm.formsRemaining || ""} onChange={(e) => setPkgForm({ ...pkgForm, formsRemaining: Number(e.target.value) })} />
+                <FieldError error={pkgErrors.formsRemaining} />
               </div>
             </div>
           </div>
-
-          {/* Auto-calculated */}
           <div className="bg-navy-50 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <p className="text-xs text-navy-400 font-medium uppercase tracking-wide">Total Cost / Pilgrim</p>
-              <p className="text-lg font-bold text-navy-900">{formatPKR(pkgTotalCost)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-navy-400 font-medium uppercase tracking-wide">Company Profit</p>
-              <p className={`text-lg font-bold ${pkgProfit >= 0 ? "text-primary-600" : "text-red-500"}`}>
-                {formatPKR(pkgProfit)}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-navy-400 font-medium uppercase tracking-wide">Agent Profit</p>
-              <p className={`text-lg font-bold ${agentProfit >= 0 ? "text-gold-600" : "text-red-500"}`}>
-                {formatPKR(agentProfit)}
-              </p>
-            </div>
+            <div><p className="text-xs text-navy-400 font-medium uppercase tracking-wide">Total Cost / Pilgrim</p><p className="text-lg font-bold text-navy-900">{formatPKR(pkgTotalCost)}</p></div>
+            <div><p className="text-xs text-navy-400 font-medium uppercase tracking-wide">Company Profit</p><p className={`text-lg font-bold ${pkgProfit >= 0 ? "text-primary-600" : "text-red-500"}`}>{formatPKR(pkgProfit)}</p></div>
+            <div><p className="text-xs text-navy-400 font-medium uppercase tracking-wide">Agent Profit</p><p className={`text-lg font-bold ${agentProfit >= 0 ? "text-gold-600" : "text-red-500"}`}>{formatPKR(agentProfit)}</p></div>
           </div>
-
-          {/* Pricing */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Selling Price (Customer)</label>
-              <input type="number" className="input" value={pkgForm.sellingPrice || ""} onChange={(e) => setPkgForm({ ...pkgForm, sellingPrice: Number(e.target.value) })} />
+              <input type="number" min="0" className={inputClass("input", pkgErrors.sellingPrice)} value={pkgForm.sellingPrice || ""} onChange={(e) => setPkgForm({ ...pkgForm, sellingPrice: Number(e.target.value) })} />
+              <FieldError error={pkgErrors.sellingPrice} />
             </div>
             <div>
               <label className="label">Agent Price</label>
-              <input type="number" className="input" value={pkgForm.agentPrice || ""} onChange={(e) => setPkgForm({ ...pkgForm, agentPrice: Number(e.target.value) })} />
+              <input type="number" min="0" className={inputClass("input", pkgErrors.agentPrice)} value={pkgForm.agentPrice || ""} onChange={(e) => setPkgForm({ ...pkgForm, agentPrice: Number(e.target.value) })} />
+              <FieldError error={pkgErrors.agentPrice} />
             </div>
           </div>
-
           <div className="flex gap-3 justify-end">
             <button onClick={() => setPkgModal(false)} className="btn-outline">Cancel</button>
             <button onClick={savePkg} className="btn-primary">Save Package</button>

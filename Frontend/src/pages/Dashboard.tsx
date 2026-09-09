@@ -45,20 +45,15 @@ export default function Dashboard() {
 
   const stats = useMemo(() => {
     const totalRevenue = bookings.reduce((s, b) => s + b.advanceAmount, 0);
-    const totalCost = [...hajjPackages, ...umrahPackages].reduce((s, p) => {
-      const cost =
-        "hotelCost" in p
-          ? p.hotelCost + p.ticketCost + p.visaCost + p.transportCost + p.foodCost + p.otherCost
-          : p.airlineCost + p.visaCost + p.hotelMadinaCost + p.hotelMakkahCost + p.transportCost + p.foodCost + p.otherCost;
-      return s + cost;
-    }, 0);
-    const totalProfit = totalRevenue - totalCost * 0.3;
+    const totalCost = ledger.filter((e) => e.type === "expense").reduce((s, e) => s + e.amount, 0);
+    const totalIncome = ledger.filter((e) => e.type === "income").reduce((s, e) => s + e.amount, 0);
+    const totalProfit = totalIncome - totalCost;
     const activePackages = hajjPackages.length + umrahPackages.length;
     const pendingBookings = bookings.filter((b) => b.paymentStatus !== "Paid").length;
     const totalInvested = investments.reduce((s, i) => s + i.amountInvested, 0);
     const totalExpenses = officeExpenses.reduce((s, e) => s + e.amount, 0);
     return { totalRevenue, totalProfit, activePackages, pendingBookings, totalInvested, totalExpenses };
-  }, [bookings, hajjPackages, umrahPackages, investments, officeExpenses]);
+  }, [bookings, hajjPackages, umrahPackages, ledger, investments, officeExpenses]);
 
   const upcomingDepartures = useMemo(() => {
     return [...bookings]
@@ -74,13 +69,18 @@ export default function Dashboard() {
 
   // Chart data
   const incomeVsExpense = useMemo(() => {
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug"];
-    return months.map((m, i) => ({
-      month: m,
-      income: Math.floor(300000 + Math.random() * 800000 + i * 100000),
-      expense: Math.floor(200000 + Math.random() * 400000 + i * 50000),
-    }));
-  }, []);
+    const map = new Map<string, { income: number; expense: number }>();
+    ledger.forEach((e) => {
+      const month = new Date(e.date).toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+      const entry = map.get(month) ?? { income: 0, expense: 0 };
+      if (e.type === "income") entry.income += e.amount;
+      else entry.expense += e.amount;
+      map.set(month, entry);
+    });
+    return Array.from(map.entries())
+      .sort((a, b) => new Date("1 " + a[0]).getTime() - new Date("1 " + b[0]).getTime())
+      .map(([month, v]) => ({ month, ...v }));
+  }, [ledger]);
 
   const packageDistribution = useMemo(() => {
     return [
@@ -99,7 +99,7 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Today's Bookings" value={String(bookings.filter(b => b.bookingDate === "2025-04-12").length || bookings.length)} icon={<CalendarCheck className="w-6 h-6" />} accent="primary" />
+          <StatCard label="Today's Bookings" value={String(bookings.filter(b => b.bookingDate === new Date().toISOString().slice(0, 10)).length)} icon={<CalendarCheck className="w-6 h-6" />} accent="primary" />
           <StatCard label="Available Packages" value={String(hajjPackages.length + umrahPackages.length)} icon={<Package className="w-6 h-6" />} accent="gold" />
           <StatCard label="Hajj Packages" value={String(hajjPackages.length)} icon={<Moon className="w-6 h-6" />} accent="navy" />
           <StatCard label="Umrah Packages" value={String(umrahPackages.length)} icon={<Globe className="w-6 h-6" />} accent="primary" />
@@ -161,8 +161,8 @@ export default function Dashboard() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Revenue" value={formatPKRShort(stats.totalRevenue)} icon={<Wallet className="w-6 h-6" />} accent="primary" trend="+12.5% this quarter" trendUp />
-        <StatCard label="Total Profit" value={formatPKRShort(Math.round(stats.totalProfit))} icon={<TrendingUp className="w-6 h-6" />} accent="gold" trend="+8.2% vs last year" trendUp />
+        <StatCard label="Total Revenue" value={formatPKRShort(stats.totalRevenue)} icon={<Wallet className="w-6 h-6" />} accent="primary" />
+        <StatCard label="Net Profit" value={formatPKRShort(Math.round(stats.totalProfit))} icon={<TrendingUp className="w-6 h-6" />} accent={stats.totalProfit >= 0 ? "gold" : "red"} />
         <StatCard label="Active Packages" value={String(stats.activePackages)} icon={<Package className="w-6 h-6" />} accent="navy" />
         <StatCard label="Pending Bookings" value={String(stats.pendingBookings)} icon={<CalendarClock className="w-6 h-6" />} accent="red" />
       </div>

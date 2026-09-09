@@ -1,19 +1,53 @@
+import { useState, useEffect } from "react";
+import { Settings as SettingsIcon, Shield, User, Building2, CheckCircle } from "lucide-react";
 import { useApp } from "../context";
-import { Settings as SettingsIcon, Shield, User, Moon, Building2, Bell } from "lucide-react";
+import { authApi } from "../lib/api";
+import { usersApi } from "../lib/userManagementApi";
 
 export default function Settings() {
-  const { role } = useApp();
+  const { role, showToast } = useApp();
   const isAdmin = role === "admin";
+
+  const [profile, setProfile] = useState<{ id: string; full_name: string; email: string } | null>(null);
+  const [fullName, setFullName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const [p, { data: userData }] = await Promise.all([authApi.profile(), authApi.session()]);
+        const email = userData.session?.user.email ?? "—";
+        setProfile({ id: p.id, full_name: p.full_name, email });
+        setFullName(p.full_name);
+      } catch { /* silent */ }
+    })();
+  }, []);
+
+  const handleSave = async () => {
+    if (!profile || !fullName.trim()) return;
+    setSaving(true);
+    try {
+      await usersApi.updateProfile(profile.id, fullName.trim());
+      setProfile((prev) => prev ? { ...prev, full_name: fullName.trim() } : prev);
+      setDirty(false);
+      showToast("Profile updated successfully");
+    } catch {
+      showToast("Failed to update profile", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="section-title">Settings</h1>
-        <p className="text-navy-400 text-sm mt-1">Agency configuration and preferences</p>
+        <p className="text-navy-400 text-sm mt-1">Agency configuration and your account</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Agency Profile */}
+        {/* Agency Info */}
         <div className="card p-5">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center text-primary-600">
@@ -21,110 +55,110 @@ export default function Settings() {
             </div>
             <h2 className="font-display font-bold text-navy-900">Agency Profile</h2>
           </div>
-          <div className="space-y-4">
-            <div>
-              <label className="label">Agency Name</label>
-              <input className="input" defaultValue="Karwan Travels (KMR)" readOnly />
-            </div>
-            <div>
-              <label className="label">Contact Number</label>
-              <input className="input" defaultValue="0800-KMR-HAJJ" readOnly />
-            </div>
-            <div>
-              <label className="label">Main Office Address</label>
-              <input className="input" defaultValue="Gulberg III, Lahore" readOnly />
-            </div>
-            <div>
-              <label className="label">Second Office Address</label>
-              <input className="input" defaultValue="PECHS, Karachi" readOnly />
-            </div>
+          <div className="space-y-3 text-sm">
+            {[
+              { label: "Agency Name", value: "Karwan Travels (KMR)" },
+              { label: "Contact Number", value: "0800-KMR-HAJJ" },
+              { label: "Office 1", value: "Gulberg III, Lahore" },
+              { label: "Office 2", value: "PECHS, Karachi" },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex items-center justify-between py-2 border-b border-navy-50 last:border-0">
+                <span className="text-navy-500">{label}</span>
+                <span className="font-medium text-navy-800">{value}</span>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Role Info */}
+        {/* My Account */}
         <div className="card p-5">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-xl bg-gold-50 flex items-center justify-center text-gold-600">
-              <Shield className="w-5 h-5" />
+              <User className="w-5 h-5" />
             </div>
-            <h2 className="font-display font-bold text-navy-900">Current Role</h2>
+            <h2 className="font-display font-bold text-navy-900">My Account</h2>
           </div>
-          <div className="space-y-3">
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-navy-50">
-              {isAdmin ? <Shield className="w-5 h-5 text-gold-600" /> : <User className="w-5 h-5 text-navy-600" />}
+          {profile ? (
+            <div className="space-y-4">
               <div>
-                <p className="font-medium text-navy-800">{isAdmin ? "Super Admin / CEO" : "User / Staff"}</p>
-                <p className="text-xs text-navy-400">
-                  {isAdmin ? "Full access to all modules including financials" : "Limited access — no cost or financial data"}
-                </p>
+                <label className="label">Full Name</label>
+                <input
+                  className="input"
+                  value={fullName}
+                  onChange={(e) => { setFullName(e.target.value); setDirty(true); }}
+                />
               </div>
-            </div>
-            <div className="space-y-2 text-sm">
-              <p className="font-medium text-navy-700">Access Summary:</p>
-              <div className="flex flex-wrap gap-2">
-                <span className="badge badge-green">Dashboard</span>
-                <span className="badge badge-green">Hajj</span>
-                <span className="badge badge-green">Umrah</span>
-                <span className="badge badge-green">Bookings</span>
-                <span className="badge badge-green">Inventory</span>
-                <span className="badge badge-green">Display Screen</span>
-                {isAdmin && <span className="badge badge-gold">Pricing</span>}
-                {isAdmin && <span className="badge badge-gold">Finance</span>}
-                {isAdmin && <span className="badge badge-gold">Investments</span>}
-                {isAdmin && <span className="badge badge-gold">Office Expenses</span>}
+              <div>
+                <label className="label">Email</label>
+                <input className="input bg-navy-50 text-navy-500 cursor-not-allowed" value={profile.email} readOnly />
               </div>
+              <div>
+                <label className="label">Role</label>
+                <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-navy-200 bg-navy-50">
+                  {isAdmin ? <Shield className="w-4 h-4 text-gold-600" /> : <User className="w-4 h-4 text-navy-500" />}
+                  <span className="text-sm font-medium text-navy-700">
+                    {isAdmin ? "Super Admin / CEO" : "Staff"}
+                  </span>
+                </div>
+              </div>
+              {dirty && (
+                <button onClick={() => void handleSave()} disabled={saving} className="btn-primary w-full">
+                  <CheckCircle className="w-4 h-4" />
+                  {saving ? "Saving..." : "Save Changes"}
+                </button>
+              )}
             </div>
-          </div>
+          ) : (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-10 rounded-xl bg-navy-100 animate-pulse" />
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Preferences */}
+        {/* Access Summary */}
         <div className="card p-5">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-xl bg-navy-100 flex items-center justify-center text-navy-600">
-              <Bell className="w-5 h-5" />
+              <Shield className="w-5 h-5" />
             </div>
-            <h2 className="font-display font-bold text-navy-900">Preferences</h2>
+            <h2 className="font-display font-bold text-navy-900">Access Summary</h2>
           </div>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between py-2">
-              <div>
-                <p className="text-sm font-medium text-navy-700">Currency</p>
-                <p className="text-xs text-navy-400">Display format for all amounts</p>
-              </div>
-              <span className="badge badge-navy">PKR (Rs.)</span>
-            </div>
-            <div className="flex items-center justify-between py-2 border-t border-navy-50">
-              <div>
-                <p className="text-sm font-medium text-navy-700">Date Format</p>
-                <p className="text-xs text-navy-400">How dates are shown</p>
-              </div>
-              <span className="badge badge-navy">DD Mon YYYY</span>
-            </div>
-            <div className="flex items-center justify-between py-2 border-t border-navy-50">
-              <div>
-                <p className="text-sm font-medium text-navy-700">Theme</p>
-                <p className="text-xs text-navy-400">Visual appearance</p>
-              </div>
-              <span className="badge badge-green">Green / Gold / Navy</span>
-            </div>
+          <div className="flex flex-wrap gap-2">
+            {["Dashboard", "Hajj", "Umrah", "Bookings", "Inventory", "Display Screen"].map((m) => (
+              <span key={m} className="badge badge-green">{m}</span>
+            ))}
+            {isAdmin && ["Pricing", "Finance", "Investments", "Office Expenses", "User Management"].map((m) => (
+              <span key={m} className="badge badge-gold">{m}</span>
+            ))}
           </div>
+          <p className="text-xs text-navy-400 mt-3">
+            {isAdmin ? "Full access — all modules including financials and user management." : "Standard access — financial and admin modules are restricted."}
+          </p>
         </div>
 
-        {/* About */}
+        {/* System Info */}
         <div className="card p-5">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center text-primary-600">
-              <Moon className="w-5 h-5" />
+              <SettingsIcon className="w-5 h-5" />
             </div>
-            <h2 className="font-display font-bold text-navy-900">About</h2>
+            <h2 className="font-display font-bold text-navy-900">System</h2>
           </div>
-          <div className="space-y-3 text-sm text-navy-500">
-            <p><span className="font-medium text-navy-700">System:</span> Karwan Travels (KMR) — Hajj & Umrah Management System</p>
-            <p><span className="font-medium text-navy-700">Version:</span> 1.0.0 (Demo)</p>
-            <p><span className="font-medium text-navy-700">Purpose:</span> Client presentation with realistic mock data</p>
-            <p className="text-xs text-navy-400 pt-2 border-t border-navy-50">
-              This is a demonstration system. All data shown is sample/mock data for presentation purposes.
-            </p>
+          <div className="space-y-3 text-sm">
+            {[
+              { label: "System", value: "KMR Hajj & Umrah Management" },
+              { label: "Version", value: "1.0.0" },
+              { label: "Currency", value: "PKR (Rs.)" },
+              { label: "Date Format", value: "DD Mon YYYY" },
+              { label: "Theme", value: "Green / Gold / Navy" },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex items-center justify-between py-2 border-b border-navy-50 last:border-0">
+                <span className="text-navy-500">{label}</span>
+                <span className="font-medium text-navy-800">{value}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
