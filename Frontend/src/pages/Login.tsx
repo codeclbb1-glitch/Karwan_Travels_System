@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Moon, Star, MapPin } from "lucide-react";
+import { ArrowRight, Moon, Star, BarChart3, Users } from "lucide-react";
 import { useApp } from "../context";
 
 export default function Login() {
@@ -26,80 +26,92 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left panel — branding */}
-      <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 relative flex-col justify-between p-12 islamic-pattern overflow-hidden">
-        {/* Overlay gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary-900/80 via-primary-800/60 to-primary-900/80" />
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
 
-        {/* Decorative circles */}
-        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-gold-400/10 blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 w-96 h-96 rounded-full bg-primary-400/20 blur-3xl" />
+      {/* ── Left panel ── */}
+      <div className="relative hidden lg:flex flex-col islamic-pattern overflow-hidden">
+        {/* dark overlay */}
+        <div className="absolute inset-0 bg-primary-900/85" />
 
-        {/* Top logo */}
-        <div className="relative flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-primary-700/80 border border-gold-400/30 flex items-center justify-center shadow-lg">
-            <span className="text-gold-400 font-display font-bold text-xl">K</span>
-          </div>
-          <div>
-            <p className="font-display font-bold text-white text-lg leading-tight">Karwan Travels</p>
-            <p className="text-gold-300 text-xs font-semibold tracking-widest">KMR</p>
-          </div>
-        </div>
+        {/* glow blobs */}
+        <div className="absolute top-0 right-0 w-80 h-80 bg-gold-400/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-primary-400/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
 
-        {/* Center content */}
-        <div className="relative space-y-8">
-          <div className="w-20 h-20 rounded-3xl bg-primary-700/60 border border-gold-400/20 flex items-center justify-center shadow-2xl">
-            <Moon className="w-10 h-10 text-gold-400" />
+        {/* content */}
+        <div className="relative flex flex-col h-full px-12 py-10">
+
+          {/* top logo */}
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-white/10 border border-gold-400/30 flex items-center justify-center">
+              <span className="text-gold-400 font-display font-bold text-lg">K</span>
+            </div>
+            <div>
+              <p className="font-display font-bold text-white text-base leading-tight">Karwan Travels</p>
+              <p className="text-gold-400 text-xs font-semibold tracking-[0.2em]">KMR</p>
+            </div>
           </div>
-          <div>
-            <h1 className="font-display font-extrabold text-4xl xl:text-5xl text-white leading-tight">
-              Hajj & Umrah<br />
-              <span className="text-gold-400">Management</span>
-            </h1>
-            <p className="text-white/60 text-lg mt-4 max-w-sm leading-relaxed">
-              Complete operations platform for Karwan Travels — bookings, finance, inventory, and more.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3">
-            {[
-              { icon: Star, text: "Manage Hajj & Umrah packages" },
-              { icon: MapPin, text: "Track bookings and customers" },
-              { icon: Moon, text: "Full financial oversight" },
-            ].map(({ icon: Icon, text }) => (
-              <div key={text} className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-lg bg-gold-400/20 flex items-center justify-center flex-shrink-0">
-                  <Icon className="w-3.5 h-3.5 text-gold-400" />
+
+          {/* center */}
+          <div className="flex-1 flex flex-col justify-center gap-8">
+            <div className="w-16 h-16 rounded-2xl bg-white/10 border border-gold-400/20 flex items-center justify-center">
+              <Moon className="w-8 h-8 text-gold-400" />
+            </div>
+
+            <div>
+              <h1 className="font-display font-extrabold text-white leading-tight" style={{ fontSize: "clamp(2rem,3.5vw,2.75rem)" }}>
+                Hajj &amp; Umrah<br />
+                <span className="text-gold-400">Management</span>
+              </h1>
+              <p className="text-white/55 text-base mt-4 leading-relaxed max-w-xs">
+                Complete operations platform for Karwan Travels — bookings, finance, inventory, and more.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {[
+                { icon: Moon,      text: "Manage Hajj & Umrah packages" },
+                { icon: Users,     text: "Track bookings and customers"  },
+                { icon: BarChart3, text: "Full financial oversight"       },
+                { icon: Star,      text: "Inventory & display screen"     },
+              ].map(({ icon: Icon, text }) => (
+                <div key={text} className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-gold-400/15 flex items-center justify-center flex-shrink-0">
+                    <Icon className="w-4 h-4 text-gold-400" />
+                  </div>
+                  <span className="text-white/65 text-sm">{text}</span>
                 </div>
-                <span className="text-white/70 text-sm">{text}</span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
 
-        {/* Bottom */}
-        <div className="relative">
-          <p className="text-white/30 text-xs">© {new Date().getFullYear()} Karwan Travels (KMR). All rights reserved.</p>
+          {/* bottom */}
+          <p className="text-white/25 text-xs">
+            © {new Date().getFullYear()} Karwan Travels (KMR). All rights reserved.
+          </p>
         </div>
       </div>
 
-      {/* Right panel — form */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10 bg-white">
-        {/* Mobile logo */}
-        <div className="lg:hidden flex flex-col items-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-primary-700 flex items-center justify-center shadow-lg mb-3">
-            <Moon className="w-8 h-8 text-gold-400" />
+      {/* ── Right panel ── */}
+      <div className="flex flex-col items-center justify-center min-h-screen bg-white px-6 sm:px-12">
+
+        {/* mobile logo */}
+        <div className="lg:hidden flex flex-col items-center mb-10">
+          <div className="w-14 h-14 rounded-2xl bg-primary-700 flex items-center justify-center shadow-lg mb-3">
+            <Moon className="w-7 h-7 text-gold-400" />
           </div>
           <p className="font-display font-bold text-navy-900 text-xl">Karwan Travels</p>
-          <p className="text-gold-600 text-xs font-semibold tracking-widest mt-0.5">KMR</p>
+          <p className="text-gold-600 text-xs font-semibold tracking-widest mt-1">KMR</p>
         </div>
 
-        <div className="w-full max-w-sm">
+        <div className="w-full max-w-md">
+
+          {/* heading */}
           <div className="mb-8">
-            <h2 className="font-display font-extrabold text-2xl text-navy-900">Welcome back</h2>
-            <p className="text-navy-400 text-sm mt-1">Sign in to your agency account</p>
+            <h2 className="font-display font-extrabold text-3xl text-navy-900 leading-tight">Welcome back</h2>
+            <p className="text-navy-400 text-sm mt-2">Sign in to your agency account to continue</p>
           </div>
 
+          {/* form */}
           <div className="space-y-5">
             <div>
               <label className="label" htmlFor="email">Email address</label>
@@ -142,10 +154,10 @@ export default function Login() {
             className="btn-primary w-full text-base py-3 mt-6"
           >
             {pending ? (
-              <span className="flex items-center gap-2">
+              <>
                 <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 Signing in...
-              </span>
+              </>
             ) : (
               <>Sign In <ArrowRight className="w-5 h-5" /></>
             )}
@@ -156,6 +168,7 @@ export default function Login() {
           </p>
         </div>
       </div>
+
     </div>
   );
 }
