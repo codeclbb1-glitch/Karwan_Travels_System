@@ -137,3 +137,20 @@ export interface Toast {
   message: string;
   type: "success" | "error" | "info";
 }
+
+export type TaskStatus = "pending" | "in_progress" | "completed";
+export type TaskPriority = "low" | "medium" | "high";
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string;
+  assignedTo: string;       // user id
+  assignedBy: string;       // user id
+  assignedToName: string;   // display name snapshot
+  status: TaskStatus;
+  priority: TaskPriority;
+  dueDate: string;          // ISO string or ""
+  completedAt: string;      // ISO string or ""
+  createdAt: string;
+}

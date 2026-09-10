@@ -16,10 +16,11 @@ import type {
   LedgerEntry,
   OfficeExpense,
   Role,
+  Task,
   Toast,
   UmrahPackage,
 } from "./types";
-import { authApi, dataApi } from "./lib/api";
+import { authApi, dataApi, tasksApi } from "./lib/api";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 
 interface AppContextValue {
@@ -50,6 +51,11 @@ interface AppContextValue {
   hotelAllocations: HotelAllocation[];
   setHotelAllocations: (h: HotelAllocation[]) => void;
   createBooking: (booking: Booking) => Promise<void>;
+  tasks: Task[];
+  loadTasks: () => Promise<void>;
+  createTask: (task: Omit<Task, "id" | "createdAt" | "completedAt">) => Promise<void>;
+  updateTaskStatus: (id: string, status: Task["status"]) => Promise<void>;
+  deleteTask: (id: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -68,6 +74,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [officeExpenses, setOfficeExpensesState] = useState<OfficeExpense[]>([]);
   const [airlineTickets, setAirlineTicketsState] = useState<AirlineTicketBatch[]>([]);
   const [hotelAllocations, setHotelAllocationsState] = useState<HotelAllocation[]>([]);
+  const [tasks, setTasksState] = useState<Task[]>([]);
 
   const loadData = useCallback(async (currentRole: Role) => {
     const loaded = await dataApi.load(currentRole);
@@ -80,6 +87,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setOfficeExpensesState(loaded.officeExpenses);
     setAirlineTicketsState(loaded.airlineTickets);
     setHotelAllocationsState(loaded.hotelAllocations);
+    await tasksApi.load().then(setTasksState).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -112,6 +120,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setOfficeExpensesState([]);
         setAirlineTicketsState([]);
         setHotelAllocationsState([]);
+        setTasksState([]);
         return;
       }
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
@@ -149,6 +158,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setOfficeExpensesState([]);
     setAirlineTicketsState([]);
     setHotelAllocationsState([]);
+    setTasksState([]);
   }, []);
 
   const setHajjFormBatches = useCallback((items: HajjFormBatch[]) => { setHajjFormBatchesState(items); void dataApi.saveForms(items); }, []);
@@ -171,6 +181,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await dataApi.createBooking(booking);
     if (role) await loadData(role);
   }, [loadData, role]);
+
+  const loadTasks = useCallback(async () => {
+    await tasksApi.load().then(setTasksState).catch(() => {});
+  }, []);
+
+  const createTask = useCallback(async (task: Omit<Task, "id" | "createdAt" | "completedAt">) => {
+    await tasksApi.create(task);
+    await loadTasks();
+  }, [loadTasks]);
+
+  const updateTaskStatus = useCallback(async (id: string, status: Task["status"]) => {
+    await tasksApi.updateStatus(id, status);
+    await loadTasks();
+  }, [loadTasks]);
+
+  const deleteTask = useCallback(async (id: string) => {
+    await tasksApi.delete(id);
+    setTasksState((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   const showToast = useCallback((message: string, type: Toast["type"] = "success") => {
     const id = Math.random().toString(36).slice(2);
@@ -213,6 +242,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         hotelAllocations,
         setHotelAllocations,
         createBooking,
+        tasks,
+        loadTasks,
+        createTask,
+        updateTaskStatus,
+        deleteTask,
       }}
     >
       {children}

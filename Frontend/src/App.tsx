@@ -14,6 +14,7 @@ import OfficeExpenses from "./pages/OfficeExpenses";
 import Inventory from "./pages/Inventory";
 import Settings from "./pages/Settings";
 import UserManagement from "./pages/UserManagement";
+import Tasks from "./pages/Tasks";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { role, authLoading } = useApp();
@@ -51,6 +52,7 @@ function AppRoutes() {
         <Route path="investments" element={<AdminRoute><Investments /></AdminRoute>} />
         <Route path="office-expenses" element={<AdminRoute><OfficeExpenses /></AdminRoute>} />
         <Route path="users" element={<AdminRoute><UserManagement /></AdminRoute>} />
+        <Route path="tasks" element={<Tasks />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

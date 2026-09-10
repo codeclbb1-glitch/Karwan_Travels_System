@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import type { AirlineTicketBatch, Booking, HajjFormBatch, HajjPackage, HotelAllocation, Investment, LedgerEntry, OfficeExpense, Role, UmrahPackage } from "../types";
+import type { AirlineTicketBatch, Booking, HajjFormBatch, HajjPackage, HotelAllocation, Investment, LedgerEntry, OfficeExpense, Role, Task, UmrahPackage } from "../types";
 
 type Row = Record<string, unknown>;
 const asNumber = (value: unknown) => Number(value ?? 0);
@@ -58,4 +58,61 @@ export const dataApi = {
   saveExpenses: async (items: OfficeExpense[]) => { for (const item of items) { const { error } = await supabase.from("office_expenses").upsert({ id: item.id.length === 36 ? item.id : undefined, office: item.office === "Office 2" ? "office_2" : "office_1", category: item.category.toLowerCase(), amount: item.amount, expense_date: item.date, description: item.description }); if (error) throw error; } },
   saveAirline: async (items: AirlineTicketBatch[]) => { for (const item of items) { const { error } = await supabase.from("airline_inventory").upsert({ id: item.id.length === 36 ? item.id : undefined, airline_name: item.airline, route: item.route, quantity_purchased: item.quantity, cost_per_ticket: item.costPerTicket, quantity_sold: item.sold, travel_date: item.travelDate, return_date: item.returnDate }); if (error) throw error; } },
   saveHotels: async (items: HotelAllocation[]) => { for (const item of items) { const { error } = await supabase.from("hotel_inventory").upsert({ id: item.id.length === 36 ? item.id : undefined, hotel_name: item.hotelName, city: item.city.toLowerCase(), room_type: item.roomType, quantity_blocked: item.quantity, cost_per_night: item.costPerNight, quantity_booked: item.booked, check_in: item.checkIn, check_out: item.checkOut }); if (error) throw error; } },
+};
+
+const taskFromDb = (r: Row): Task => ({
+  id: asString(r.id),
+  title: asString(r.title),
+  description: asString(r.description),
+  assignedTo: asString(r.assigned_to),
+  assignedBy: asString(r.assigned_by),
+  assignedToName: asString(r.assigned_to_name),
+  status: (r.status as Task["status"]) ?? "pending",
+  priority: (r.priority as Task["priority"]) ?? "medium",
+  dueDate: asString(r.due_date),
+  completedAt: asString(r.completed_at),
+  createdAt: asString(r.created_at),
+});
+
+export const tasksApi = {
+  load: async (): Promise<Task[]> => {
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map(taskFromDb);
+  },
+
+  create: async (task: Omit<Task, "id" | "createdAt" | "completedAt">): Promise<Task> => {
+    const { data, error } = await supabase
+      .from("tasks")
+      .insert({
+        title: task.title,
+        description: task.description,
+        assigned_to: task.assignedTo,
+        assigned_by: task.assignedBy,
+        assigned_to_name: task.assignedToName,
+        status: task.status,
+        priority: task.priority,
+        due_date: task.dueDate || null,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return taskFromDb(data as Row);
+  },
+
+  updateStatus: async (id: string, status: Task["status"]): Promise<void> => {
+    const { error } = await supabase
+      .from("tasks")
+      .update({ status, completed_at: status === "completed" ? new Date().toISOString() : null })
+      .eq("id", id);
+    if (error) throw error;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    const { error } = await supabase.from("tasks").delete().eq("id", id);
+    if (error) throw error;
+  },
 };

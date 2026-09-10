@@ -16,6 +16,7 @@ import {
   X,
   Users,
   AlertTriangle,
+  ClipboardList,
 } from "lucide-react";
 import { useApp } from "../context";
 
@@ -42,6 +43,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
     { to: "/office-expenses", label: "Office Expenses", icon: Building2, show: isAdmin },
     { to: "/users", label: "User Management", icon: Users, show: isAdmin },
     { to: "/inventory", label: "Inventory", icon: Package, show: true },
+    { to: "/tasks", label: "Tasks", icon: ClipboardList, show: true },
     { to: "/settings", label: "Settings", icon: Settings, show: true },
   ].filter((item) => item.show);
 
