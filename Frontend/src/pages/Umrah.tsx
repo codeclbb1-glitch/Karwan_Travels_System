@@ -59,23 +59,27 @@ export default function Umrah() {
   const openAddPkg = () => { setEditPkgId(null); setPkgForm(emptyPackage); setPkgErrors({}); setPkgModal(true); };
   const openEditPkg = (p: UmrahPackage) => { setEditPkgId(p.id); const { id, ...rest } = p; setPkgForm(rest); setPkgErrors({}); setPkgModal(true); };
 
-  const savePkg = () => {
+  const savePkg = async () => {
     const errors = validatePkg();
     setPkgErrors(errors);
     if (hasErrors(errors)) { showToast("Please fix the errors", "error"); return; }
-    if (editPkgId) {
-      setUmrahPackages(umrahPackages.map((p) => (p.id === editPkgId ? { ...pkgForm, id: editPkgId } : p)));
-      showToast("Package updated successfully");
-    } else {
-      setUmrahPackages([...umrahPackages, { ...pkgForm, id: "up" + Date.now() }]);
-      showToast("Package saved successfully");
-    }
-    setPkgModal(false);
+    try {
+      if (editPkgId) {
+        await setUmrahPackages(umrahPackages.map((p) => (p.id === editPkgId ? { ...pkgForm, id: editPkgId } : p)));
+        showToast("Package updated successfully");
+      } else {
+        await setUmrahPackages([...umrahPackages, { ...pkgForm, id: "up" + Date.now() }]);
+        showToast("Package saved successfully");
+      }
+      setPkgModal(false);
+    } catch { showToast("Failed to save package", "error"); }
   };
 
-  const deletePkg = (id: string) => {
-    setUmrahPackages(umrahPackages.filter((p) => p.id !== id));
-    showToast("Package deleted", "info");
+  const deletePkg = async (id: string) => {
+    try {
+      await setUmrahPackages(umrahPackages.filter((p) => p.id !== id));
+      showToast("Package deleted", "info");
+    } catch { showToast("Failed to delete package", "error"); }
   };
 
   const toggleInclusion = (key: string) => {
@@ -115,7 +119,7 @@ export default function Umrah() {
                     <button onClick={() => openEditPkg(p)} className="text-navy-400 hover:text-primary-600 p-1.5 rounded-lg hover:bg-primary-50">
                       <Pencil className="w-4 h-4" />
                     </button>
-                    <button onClick={() => deletePkg(p.id)} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
+                    <button onClick={() => void deletePkg(p.id)} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -277,7 +281,7 @@ export default function Umrah() {
 
           <div className="flex gap-3 justify-end">
             <button onClick={() => setPkgModal(false)} className="btn-outline">Cancel</button>
-            <button onClick={savePkg} className="btn-primary">Save Package</button>
+            <button onClick={() => void savePkg()} className="btn-primary">Save Package</button>
           </div>
         </div>
       </Modal>

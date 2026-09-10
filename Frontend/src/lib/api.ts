@@ -49,15 +49,49 @@ export const dataApi = {
     };
   },
 
-  saveHajjPackages: async (items: HajjPackage[]) => { for (const item of items) { const { error } = await supabase.from("hajj_packages").upsert({ id: item.id.length === 36 ? item.id : undefined, ...packageToDb(item) }); if (error) throw error; } },
-  saveUmrahPackages: async (items: UmrahPackage[]) => { for (const item of items) { const { error } = await supabase.from("umrah_packages").upsert({ id: item.id.length === 36 ? item.id : undefined, ...packageToDb(item) }); if (error) throw error; } },
+  saveHajjPackages: async (items: HajjPackage[]): Promise<HajjPackage[]> => {
+    const rows = items.map((item) => ({ id: item.id.length === 36 ? item.id : undefined, ...packageToDb(item) }));
+    const { data, error } = await supabase.from("hajj_packages").upsert(rows).select();
+    if (error) throw error;
+    return (data ?? []).map(hajjFromDb);
+  },
+  saveUmrahPackages: async (items: UmrahPackage[]): Promise<UmrahPackage[]> => {
+    const rows = items.map((item) => ({ id: item.id.length === 36 ? item.id : undefined, ...packageToDb(item) }));
+    const { data, error } = await supabase.from("umrah_packages").upsert(rows).select();
+    if (error) throw error;
+    return (data ?? []).map(umrahFromDb);
+  },
   createBooking: async (item: Booking) => { const { data, error } = await supabase.rpc("create_booking", { p_service_type: item.serviceType.toLowerCase(), p_package_id: item.packageId || null, p_selected_inclusions: item.selectedInclusions, p_customer_name: item.customerName, p_cnic_passport: item.cnicPassport, p_phone: item.phone, p_address: item.address, p_next_of_kin: item.nextOfKin, p_next_of_kin_phone: item.nextOfKinPhone, p_payment_status: item.paymentStatus.toLowerCase(), p_advance_amount: item.advanceAmount, p_departure_date: item.departureDate || null, p_custom_package_name: item.customPackageName || null, p_custom_price: item.customPrice ?? null }); if (error) throw error; return unwrap(data); },
-  saveForms: async (items: HajjFormBatch[]) => { for (const item of items) { const { error } = await supabase.from("hajj_form_batches").upsert({ id: item.id.length === 36 ? item.id : undefined, batch_name: item.batchName, quantity_purchased: item.quantity, price_per_form: item.pricePerForm, date_purchased: item.datePurchased, used: item.used }); if (error) throw error; } },
-  saveLedger: async (items: LedgerEntry[]) => { for (const item of items) { const { error } = await supabase.from("financial_transactions").upsert({ id: item.id.length === 36 ? item.id : undefined, type: item.type, category: item.category, amount: item.amount, transaction_date: item.date, description: item.description }); if (error) throw error; } },
-  saveInvestments: async (items: Investment[]) => { for (const item of items) { const { error } = await supabase.from("investments").upsert({ id: item.id.length === 36 ? item.id : undefined, name: item.name, ownership_percent: item.ownershipPercent, amount_invested: item.amountInvested, investment_date: item.date, notes: item.notes }); if (error) throw error; } },
-  saveExpenses: async (items: OfficeExpense[]) => { for (const item of items) { const { error } = await supabase.from("office_expenses").upsert({ id: item.id.length === 36 ? item.id : undefined, office: item.office === "Office 2" ? "office_2" : "office_1", category: item.category.toLowerCase(), amount: item.amount, expense_date: item.date, description: item.description }); if (error) throw error; } },
-  saveAirline: async (items: AirlineTicketBatch[]) => { for (const item of items) { const { error } = await supabase.from("airline_inventory").upsert({ id: item.id.length === 36 ? item.id : undefined, airline_name: item.airline, route: item.route, quantity_purchased: item.quantity, cost_per_ticket: item.costPerTicket, quantity_sold: item.sold, travel_date: item.travelDate, return_date: item.returnDate }); if (error) throw error; } },
-  saveHotels: async (items: HotelAllocation[]) => { for (const item of items) { const { error } = await supabase.from("hotel_inventory").upsert({ id: item.id.length === 36 ? item.id : undefined, hotel_name: item.hotelName, city: item.city.toLowerCase(), room_type: item.roomType, quantity_blocked: item.quantity, cost_per_night: item.costPerNight, quantity_booked: item.booked, check_in: item.checkIn, check_out: item.checkOut }); if (error) throw error; } },
+  saveForms: async (items: HajjFormBatch[]) => {
+    const rows = items.map((item) => ({ id: item.id.length === 36 ? item.id : undefined, batch_name: item.batchName, quantity_purchased: item.quantity, price_per_form: item.pricePerForm, date_purchased: item.datePurchased, used: item.used }));
+    const { error } = await supabase.from("hajj_form_batches").upsert(rows);
+    if (error) throw error;
+  },
+  saveLedger: async (items: LedgerEntry[]) => {
+    const rows = items.map((item) => ({ id: item.id.length === 36 ? item.id : undefined, type: item.type, category: item.category, amount: item.amount, transaction_date: item.date, description: item.description }));
+    const { error } = await supabase.from("financial_transactions").upsert(rows);
+    if (error) throw error;
+  },
+  saveInvestments: async (items: Investment[]) => {
+    const rows = items.map((item) => ({ id: item.id.length === 36 ? item.id : undefined, name: item.name, ownership_percent: item.ownershipPercent, amount_invested: item.amountInvested, investment_date: item.date, notes: item.notes }));
+    const { error } = await supabase.from("investments").upsert(rows);
+    if (error) throw error;
+  },
+  saveExpenses: async (items: OfficeExpense[]) => {
+    const rows = items.map((item) => ({ id: item.id.length === 36 ? item.id : undefined, office: item.office === "Office 2" ? "office_2" : "office_1", category: item.category.toLowerCase(), amount: item.amount, expense_date: item.date, description: item.description }));
+    const { error } = await supabase.from("office_expenses").upsert(rows);
+    if (error) throw error;
+  },
+  saveAirline: async (items: AirlineTicketBatch[]) => {
+    const rows = items.map((item) => ({ id: item.id.length === 36 ? item.id : undefined, airline_name: item.airline, route: item.route, quantity_purchased: item.quantity, cost_per_ticket: item.costPerTicket, quantity_sold: item.sold, travel_date: item.travelDate, return_date: item.returnDate }));
+    const { error } = await supabase.from("airline_inventory").upsert(rows);
+    if (error) throw error;
+  },
+  saveHotels: async (items: HotelAllocation[]) => {
+    const rows = items.map((item) => ({ id: item.id.length === 36 ? item.id : undefined, hotel_name: item.hotelName, city: item.city.toLowerCase(), room_type: item.roomType, quantity_blocked: item.quantity, cost_per_night: item.costPerNight, quantity_booked: item.booked, check_in: item.checkIn, check_out: item.checkOut }));
+    const { error } = await supabase.from("hotel_inventory").upsert(rows);
+    if (error) throw error;
+  },
 };
 
 const taskFromDb = (r: Row): Task => ({

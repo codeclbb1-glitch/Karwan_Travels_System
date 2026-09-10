@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { Settings as SettingsIcon, Shield, User, Building2, CheckCircle } from "lucide-react";
+import { Settings as SettingsIcon, Shield, User, Building2, CheckCircle, KeyRound } from "lucide-react";
 import { useApp } from "../context";
 import { authApi } from "../lib/api";
 import { usersApi } from "../lib/userManagementApi";
+import { supabase } from "../lib/supabase";
 
 export default function Settings() {
   const { role, showToast } = useApp();
@@ -12,6 +13,9 @@ export default function Settings() {
   const [fullName, setFullName] = useState("");
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
+  const [pwError, setPwError] = useState("");
+  const [pwSaving, setPwSaving] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -36,6 +40,28 @@ export default function Settings() {
       showToast("Failed to update profile", "error");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    setPwError("");
+    if (!pwForm.next || pwForm.next.length < 8) { setPwError("New password must be at least 8 characters"); return; }
+    if (pwForm.next !== pwForm.confirm) { setPwError("Passwords do not match"); return; }
+    setPwSaving(true);
+    try {
+      // Re-authenticate with current password first
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) throw new Error("No user");
+      const { error: signInErr } = await supabase.auth.signInWithPassword({ email: user.email, password: pwForm.current });
+      if (signInErr) { setPwError("Current password is incorrect"); return; }
+      const { error } = await supabase.auth.updateUser({ password: pwForm.next });
+      if (error) throw error;
+      setPwForm({ current: "", next: "", confirm: "" });
+      showToast("Password changed successfully");
+    } catch (e) {
+      if (!pwError) setPwError(e instanceof Error ? e.message : "Failed to change password");
+    } finally {
+      setPwSaving(false);
     }
   };
 
@@ -115,6 +141,35 @@ export default function Settings() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Change Password */}
+        <div className="card p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-navy-100 flex items-center justify-center text-navy-600">
+              <KeyRound className="w-5 h-5" />
+            </div>
+            <h2 className="font-display font-bold text-navy-900">Change Password</h2>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <label className="label">Current Password</label>
+              <input type="password" className="input" value={pwForm.current} onChange={(e) => setPwForm({ ...pwForm, current: e.target.value })} placeholder="••••••••" autoComplete="current-password" />
+            </div>
+            <div>
+              <label className="label">New Password</label>
+              <input type="password" className="input" value={pwForm.next} onChange={(e) => setPwForm({ ...pwForm, next: e.target.value })} placeholder="Min. 8 characters" autoComplete="new-password" />
+            </div>
+            <div>
+              <label className="label">Confirm New Password</label>
+              <input type="password" className="input" value={pwForm.confirm} onChange={(e) => setPwForm({ ...pwForm, confirm: e.target.value })} placeholder="Repeat new password" autoComplete="new-password" />
+            </div>
+            {pwError && <p className="text-xs text-red-500">{pwError}</p>}
+            <button onClick={() => void handleChangePassword()} disabled={pwSaving || !pwForm.current || !pwForm.next || !pwForm.confirm} className="btn-primary w-full">
+              <KeyRound className="w-4 h-4" />
+              {pwSaving ? "Changing..." : "Change Password"}
+            </button>
+          </div>
         </div>
 
         {/* Access Summary */}

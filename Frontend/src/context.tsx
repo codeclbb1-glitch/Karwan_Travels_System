@@ -33,23 +33,23 @@ interface AppContextValue {
   removeToast: (id: string) => void;
 
   hajjFormBatches: HajjFormBatch[];
-  setHajjFormBatches: (b: HajjFormBatch[]) => void;
+  setHajjFormBatches: (b: HajjFormBatch[]) => Promise<void>;
   hajjPackages: HajjPackage[];
-  setHajjPackages: (p: HajjPackage[]) => void;
+  setHajjPackages: (p: HajjPackage[]) => Promise<void>;
   umrahPackages: UmrahPackage[];
-  setUmrahPackages: (p: UmrahPackage[]) => void;
+  setUmrahPackages: (p: UmrahPackage[]) => Promise<void>;
   bookings: Booking[];
   setBookings: (b: Booking[]) => void;
   ledger: LedgerEntry[];
   setLedger: (l: LedgerEntry[]) => Promise<void>;
   investments: Investment[];
-  setInvestments: (i: Investment[]) => void;
+  setInvestments: (i: Investment[]) => Promise<void>;
   officeExpenses: OfficeExpense[];
-  setOfficeExpenses: (e: OfficeExpense[]) => void;
+  setOfficeExpenses: (e: OfficeExpense[]) => Promise<void>;
   airlineTickets: AirlineTicketBatch[];
-  setAirlineTickets: (a: AirlineTicketBatch[]) => void;
+  setAirlineTickets: (a: AirlineTicketBatch[]) => Promise<void>;
   hotelAllocations: HotelAllocation[];
-  setHotelAllocations: (h: HotelAllocation[]) => void;
+  setHotelAllocations: (h: HotelAllocation[]) => Promise<void>;
   createBooking: (booking: Booking) => Promise<void>;
   tasks: Task[];
   loadTasks: () => Promise<void>;
@@ -161,22 +161,50 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setTasksState([]);
   }, []);
 
-  const setHajjFormBatches = useCallback((items: HajjFormBatch[]) => { setHajjFormBatchesState(items); void dataApi.saveForms(items); }, []);
-  const setHajjPackages = useCallback((items: HajjPackage[]) => { setHajjPackagesState(items); void dataApi.saveHajjPackages(items); }, []);
-  const setUmrahPackages = useCallback((items: UmrahPackage[]) => { setUmrahPackagesState(items); void dataApi.saveUmrahPackages(items); }, []);
+  // All setters: optimistic update → await DB → rollback + throw on failure
+  const setHajjFormBatches = useCallback(async (items: HajjFormBatch[]) => {
+    const prev = await new Promise<HajjFormBatch[]>((res) => { setHajjFormBatchesState((s) => { res(s); return items; }); });
+    try { await dataApi.saveForms(items); }
+    catch (e) { setHajjFormBatchesState(prev); throw e; }
+  }, []);
+  const setHajjPackages = useCallback(async (items: HajjPackage[]) => {
+    const prev = await new Promise<HajjPackage[]>((res) => { setHajjPackagesState((s) => { res(s); return items; }); });
+    try { const saved = await dataApi.saveHajjPackages(items); setHajjPackagesState(saved); }
+    catch (e) { setHajjPackagesState(prev); throw e; }
+  }, []);
+  const setUmrahPackages = useCallback(async (items: UmrahPackage[]) => {
+    const prev = await new Promise<UmrahPackage[]>((res) => { setUmrahPackagesState((s) => { res(s); return items; }); });
+    try { const saved = await dataApi.saveUmrahPackages(items); setUmrahPackagesState(saved); }
+    catch (e) { setUmrahPackagesState(prev); throw e; }
+  }, []);
   const setBookings = useCallback((items: Booking[]) => { setBookingsState(items); }, []);
   const setLedger = useCallback(async (items: LedgerEntry[]) => {
-    setLedgerState(items);
-    await dataApi.saveLedger(items);
-    if (role) {
-      const loaded = await dataApi.load(role);
-      setLedgerState(loaded.ledger);
-    }
+    const prev = await new Promise<LedgerEntry[]>((res) => { setLedgerState((s) => { res(s); return items; }); });
+    try {
+      await dataApi.saveLedger(items);
+      if (role) { const loaded = await dataApi.load(role); setLedgerState(loaded.ledger); }
+    } catch (e) { setLedgerState(prev); throw e; }
   }, [role]);
-  const setInvestments = useCallback((items: Investment[]) => { setInvestmentsState(items); void dataApi.saveInvestments(items); }, []);
-  const setOfficeExpenses = useCallback((items: OfficeExpense[]) => { setOfficeExpensesState(items); void dataApi.saveExpenses(items); }, []);
-  const setAirlineTickets = useCallback((items: AirlineTicketBatch[]) => { setAirlineTicketsState(items); void dataApi.saveAirline(items); }, []);
-  const setHotelAllocations = useCallback((items: HotelAllocation[]) => { setHotelAllocationsState(items); void dataApi.saveHotels(items); }, []);
+  const setInvestments = useCallback(async (items: Investment[]) => {
+    const prev = await new Promise<Investment[]>((res) => { setInvestmentsState((s) => { res(s); return items; }); });
+    try { await dataApi.saveInvestments(items); }
+    catch (e) { setInvestmentsState(prev); throw e; }
+  }, []);
+  const setOfficeExpenses = useCallback(async (items: OfficeExpense[]) => {
+    const prev = await new Promise<OfficeExpense[]>((res) => { setOfficeExpensesState((s) => { res(s); return items; }); });
+    try { await dataApi.saveExpenses(items); }
+    catch (e) { setOfficeExpensesState(prev); throw e; }
+  }, []);
+  const setAirlineTickets = useCallback(async (items: AirlineTicketBatch[]) => {
+    const prev = await new Promise<AirlineTicketBatch[]>((res) => { setAirlineTicketsState((s) => { res(s); return items; }); });
+    try { await dataApi.saveAirline(items); }
+    catch (e) { setAirlineTicketsState(prev); throw e; }
+  }, []);
+  const setHotelAllocations = useCallback(async (items: HotelAllocation[]) => {
+    const prev = await new Promise<HotelAllocation[]>((res) => { setHotelAllocationsState((s) => { res(s); return items; }); });
+    try { await dataApi.saveHotels(items); }
+    catch (e) { setHotelAllocationsState(prev); throw e; }
+  }, []);
   const createBooking = useCallback(async (booking: Booking) => {
     await dataApi.createBooking(booking);
     if (role) await loadData(role);

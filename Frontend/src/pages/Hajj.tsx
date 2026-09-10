@@ -74,38 +74,52 @@ export default function Hajj() {
 
   const openAddBatch = () => { setEditBatchId(null); setBatchForm(emptyBatch); setBatchErrors({}); setBatchModal(true); };
   const openEditBatch = (b: HajjFormBatch) => { setEditBatchId(b.id); const { id, ...rest } = b; setBatchForm(rest); setBatchErrors({}); setBatchModal(true); };
-  const deleteBatch = (id: string) => { setHajjFormBatches(hajjFormBatches.filter((b) => b.id !== id)); showToast("Batch deleted", "info"); };
+  const deleteBatch = async (id: string) => {
+    try {
+      await setHajjFormBatches(hajjFormBatches.filter((b) => b.id !== id));
+      showToast("Batch deleted", "info");
+    } catch { showToast("Failed to delete batch", "error"); }
+  };
 
-  const saveBatch = () => {
+  const saveBatch = async () => {
     const errors = validateBatch();
     setBatchErrors(errors);
     if (hasErrors(errors)) { showToast("Please fix the errors", "error"); return; }
-    if (editBatchId) {
-      setHajjFormBatches(hajjFormBatches.map((b) => (b.id === editBatchId ? { ...batchForm, id: editBatchId } : b)));
-      showToast("Batch updated successfully");
-    } else {
-      setHajjFormBatches([...hajjFormBatches, { ...batchForm, id: "hb" + Date.now() }]);
-      showToast("Batch added successfully");
-    }
-    setBatchModal(false);
+    try {
+      if (editBatchId) {
+        await setHajjFormBatches(hajjFormBatches.map((b) => (b.id === editBatchId ? { ...batchForm, id: editBatchId } : b)));
+        showToast("Batch updated successfully");
+      } else {
+        await setHajjFormBatches([...hajjFormBatches, { ...batchForm, id: "hb" + Date.now() }]);
+        showToast("Batch added successfully");
+      }
+      setBatchModal(false);
+    } catch { showToast("Failed to save batch", "error"); }
   };
 
   const openAddPkg = () => { setEditPkgId(null); setPkgForm(emptyPackage); setPkgErrors({}); setPkgModal(true); };
   const openEditPkg = (p: HajjPackage) => { setEditPkgId(p.id); const { id, ...rest } = p; setPkgForm(rest); setPkgErrors({}); setPkgModal(true); };
-  const deletePkg = (id: string) => { setHajjPackages(hajjPackages.filter((p) => p.id !== id)); showToast("Package deleted", "info"); };
+  const deletePkg = async (id: string) => {
+    try {
+      await setHajjPackages(hajjPackages.filter((p) => p.id !== id));
+      showToast("Package deleted", "info");
+    } catch { showToast("Failed to delete package", "error"); }
+  };
 
-  const savePkg = () => {
+  const savePkg = async () => {
     const errors = validatePkg();
     setPkgErrors(errors);
     if (hasErrors(errors)) { showToast("Please fix the errors", "error"); return; }
-    if (editPkgId) {
-      setHajjPackages(hajjPackages.map((p) => (p.id === editPkgId ? { ...pkgForm, id: editPkgId } : p)));
-      showToast("Package updated successfully");
-    } else {
-      setHajjPackages([...hajjPackages, { ...pkgForm, id: "hp" + Date.now() }]);
-      showToast("Package saved successfully");
-    }
-    setPkgModal(false);
+    try {
+      if (editPkgId) {
+        await setHajjPackages(hajjPackages.map((p) => (p.id === editPkgId ? { ...pkgForm, id: editPkgId } : p)));
+        showToast("Package updated successfully");
+      } else {
+        await setHajjPackages([...hajjPackages, { ...pkgForm, id: "hp" + Date.now() }]);
+        showToast("Package saved successfully");
+      }
+      setPkgModal(false);
+    } catch { showToast("Failed to save package", "error"); }
   };
 
   return (
@@ -204,7 +218,7 @@ export default function Hajj() {
                             </button>
                           )}
                           {isAdmin && (
-                            <button onClick={() => deletePkg(p.id)} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
+                            <button onClick={() => void deletePkg(p.id)} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           )}
@@ -236,7 +250,7 @@ export default function Hajj() {
                       <button onClick={() => openEditBatch(b)} className="text-navy-400 hover:text-primary-600 p-1.5 rounded-lg hover:bg-primary-50">
                         <Pencil className="w-4 h-4" />
                       </button>
-                      <button onClick={() => deleteBatch(b.id)} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
+                      <button onClick={() => void deleteBatch(b.id)} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -318,7 +332,7 @@ export default function Hajj() {
           </div>
           <div className="flex gap-3 justify-end">
             <button onClick={() => setBatchModal(false)} className="btn-outline">Cancel</button>
-            <button onClick={saveBatch} className="btn-primary">Save</button>
+            <button onClick={() => void saveBatch()} className="btn-primary">Save</button>
           </div>
         </div>
       </Modal>
@@ -391,7 +405,7 @@ export default function Hajj() {
           </div>
           <div className="flex gap-3 justify-end">
             <button onClick={() => setPkgModal(false)} className="btn-outline">Cancel</button>
-            <button onClick={savePkg} className="btn-primary">Save Package</button>
+            <button onClick={() => void savePkg()} className="btn-primary">Save Package</button>
           </div>
         </div>
       </Modal>
