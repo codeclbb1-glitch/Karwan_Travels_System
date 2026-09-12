@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, Trash2, Building2, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { Plus, Trash2, Building2 } from "lucide-react";
 import { useApp } from "../context";
 import Modal from "../components/Modal";
 import { formatPKR, formatPKRShort } from "../data";
@@ -28,7 +28,7 @@ export default function OfficeExpenses() {
     office: "Office 1",
   });
 
-  const [calMonth, setCalMonth] = useState(new Date("2025-08-01"));
+  const [categoryFilter, setCategoryFilter] = useState<string>("All");
 
   const totalExpenses = useMemo(() => officeExpenses.reduce((s, e) => s + e.amount, 0), [officeExpenses]);
 
@@ -49,25 +49,10 @@ export default function OfficeExpenses() {
     ];
   }, [officeExpenses]);
 
-  // Calendar
-  const calendarDays = useMemo(() => {
-    const year = calMonth.getFullYear();
-    const month = calMonth.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const startWeekday = firstDay.getDay();
-    const daysInMonth = lastDay.getDate();
-
-    const days: (number | null)[] = [];
-    for (let i = 0; i < startWeekday; i++) days.push(null);
-    for (let d = 1; d <= daysInMonth; d++) days.push(d);
-    return days;
-  }, [calMonth]);
-
-  const expensesOnDay = (day: number) => {
-    const dateStr = `${calMonth.getFullYear()}-${String(calMonth.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    return officeExpenses.filter((e) => e.date === dateStr);
-  };
+  const filteredExpenses = useMemo(
+    () => categoryFilter === "All" ? officeExpenses : officeExpenses.filter((e) => e.category === categoryFilter),
+    [officeExpenses, categoryFilter]
+  );
 
   const openAdd = () => {
     setForm({ category: "Salaries", amount: 0, date: new Date().toISOString().slice(0, 10), description: "", office: "Office 1" });
@@ -93,14 +78,12 @@ export default function OfficeExpenses() {
     showToast("Expense removed", "info");
   };
 
-  const monthName = calMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="section-title">Office Expenses</h1>
-          <p className="text-navy-400 text-sm mt-1">Track expenses by category and office, with calendar view</p>
+          <p className="text-navy-400 text-sm mt-1">Track expenses by category and office</p>
         </div>
         <button onClick={openAdd} className="btn-primary">
           <Plus className="w-4 h-4" /> Add Expense
@@ -165,62 +148,14 @@ export default function OfficeExpenses() {
         </div>
       </div>
 
-      {/* Calendar */}
-      <div className="card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display font-bold text-navy-900 flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-primary-600" />
-            {monthName}
-          </h2>
-          <div className="flex gap-2">
-            <button onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1))} className="btn-ghost p-2">
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <button onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1))} className="btn-ghost p-2">
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-        <div className="grid grid-cols-7 gap-2">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-            <div key={d} className="text-center text-xs font-semibold text-navy-400 uppercase py-2">
-              {d}
-            </div>
-          ))}
-          {calendarDays.map((day, i) => {
-            if (day === null) return <div key={i} className="aspect-square"></div>;
-            const dayExpenses = expensesOnDay(day);
-            const dayTotal = dayExpenses.reduce((s, e) => s + e.amount, 0);
-            return (
-              <div
-                key={i}
-                className={`aspect-square rounded-xl border p-2 overflow-hidden transition-all ${
-                  dayExpenses.length > 0
-                    ? "border-primary-200 bg-primary-50/50 hover:shadow-sm cursor-pointer"
-                    : "border-navy-50"
-                }`}
-              >
-                <p className="text-xs font-medium text-navy-600">{day}</p>
-                {dayExpenses.length > 0 && (
-                  <div className="mt-1">
-                    <p className="text-xs font-bold text-primary-700">{formatPKRShort(dayTotal)}</p>
-                    <div className="flex flex-wrap gap-0.5 mt-1">
-                      {dayExpenses.slice(0, 3).map((e) => (
-                        <span key={e.id} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: categoryColors[e.category] }}></span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
       {/* Table */}
       <div className="card overflow-hidden">
-        <div className="px-5 py-4 border-b border-navy-100">
+        <div className="px-5 py-4 border-b border-navy-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <h2 className="font-display font-bold text-navy-900">All Expense Entries</h2>
+          <select className="input w-auto text-sm" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+            <option value="All">All Categories</option>
+            {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -235,7 +170,10 @@ export default function OfficeExpenses() {
               </tr>
             </thead>
             <tbody className="divide-y divide-navy-50">
-              {officeExpenses.map((e) => (
+              {filteredExpenses.length === 0 && (
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-navy-400 text-sm">No expenses found</td></tr>
+              )}
+              {filteredExpenses.map((e) => (
                 <tr key={e.id} className="table-row-hover">
                   <td className="px-4 py-3 text-sm text-navy-500">{e.date}</td>
                   <td className="px-4 py-3">

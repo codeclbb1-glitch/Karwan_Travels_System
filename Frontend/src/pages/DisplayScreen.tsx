@@ -54,17 +54,18 @@ export default function DisplayScreen() {
   const currentPackage = allPackages[currentIndex];
 
   return (
-    <div className="min-h-screen islamic-pattern overflow-hidden">
-      <div className="absolute inset-0 bg-navy-900/30"></div>
+    <div className="min-h-screen overflow-hidden relative">
+      <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url('/bg_display.jpg')" }}></div>
+      <div className="absolute inset-0 backdrop-blur-sm bg-navy-900/40"></div>
 
       {/* Header */}
       <div className="relative z-10 flex items-center justify-between px-8 py-6">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-primary-700 flex items-center justify-center shadow-lg">
-            <Moon className="w-8 h-8 text-gold-400" />
+          <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-lg border-2 border-gold-400/30">
+            <img src="/logo.jpeg" alt="KMR Logo" className="w-full h-full object-cover" />
           </div>
           <div>
-            <h1 className="font-display font-extrabold text-2xl text-white">Karwan Travels</h1>
+            <h1 className="font-display font-extrabold text-2xl text-white">Karwan-e-Miftah</h1>
             <p className="text-gold-300 font-semibold tracking-widest text-sm">KMR · HAJJ & UMRAH</p>
           </div>
         </div>

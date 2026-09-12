@@ -69,40 +69,54 @@ export default function Inventory() {
   const openAddAir = () => { setEditAirId(null); setAirForm(emptyAir); setAirErrors({}); setAirModal(true); };
   const openEditAir = (a: AirlineTicketBatch) => { setEditAirId(a.id); const { id, ...rest } = a; setAirForm(rest); setAirErrors({}); setAirModal(true); };
 
-  const saveAir = () => {
+  const saveAir = async () => {
     const errors = validateAir();
     setAirErrors(errors);
     if (hasErrors(errors)) { showToast("Please fix the errors", "error"); return; }
-    if (editAirId) {
-      setAirlineTickets(airlineTickets.map((a) => (a.id === editAirId ? { ...airForm, id: editAirId } : a)));
-      showToast("Ticket batch updated");
-    } else {
-      setAirlineTickets([...airlineTickets, { ...airForm, id: "at" + Date.now() }]);
-      showToast("Ticket batch added");
-    }
-    setAirModal(false);
+    try {
+      if (editAirId) {
+        await setAirlineTickets(airlineTickets.map((a) => (a.id === editAirId ? { ...airForm, id: editAirId } : a)));
+        showToast("Ticket batch updated");
+      } else {
+        await setAirlineTickets([...airlineTickets, { ...airForm, id: "at" + Date.now() }]);
+        showToast("Ticket batch added");
+      }
+      setAirModal(false);
+    } catch { showToast("Failed to save ticket batch", "error"); }
   };
 
-  const deleteAir = (id: string) => { setAirlineTickets(airlineTickets.filter((a) => a.id !== id)); showToast("Ticket batch removed", "info"); };
+  const deleteAir = async (id: string) => {
+    try {
+      await setAirlineTickets(airlineTickets.filter((a) => a.id !== id));
+      showToast("Ticket batch removed", "info");
+    } catch { showToast("Failed to delete", "error"); }
+  };
 
   const openAddHotel = () => { setEditHotelId(null); setHotelForm(emptyHotel); setHotelErrors({}); setHotelModal(true); };
   const openEditHotel = (h: HotelAllocation) => { setEditHotelId(h.id); const { id, ...rest } = h; setHotelForm(rest); setHotelErrors({}); setHotelModal(true); };
 
-  const saveHotel = () => {
+  const saveHotel = async () => {
     const errors = validateHotel();
     setHotelErrors(errors);
     if (hasErrors(errors)) { showToast("Please fix the errors", "error"); return; }
-    if (editHotelId) {
-      setHotelAllocations(hotelAllocations.map((h) => (h.id === editHotelId ? { ...hotelForm, id: editHotelId } : h)));
-      showToast("Hotel allocation updated");
-    } else {
-      setHotelAllocations([...hotelAllocations, { ...hotelForm, id: "ha" + Date.now() }]);
-      showToast("Hotel allocation added");
-    }
-    setHotelModal(false);
+    try {
+      if (editHotelId) {
+        await setHotelAllocations(hotelAllocations.map((h) => (h.id === editHotelId ? { ...hotelForm, id: editHotelId } : h)));
+        showToast("Hotel allocation updated");
+      } else {
+        await setHotelAllocations([...hotelAllocations, { ...hotelForm, id: "ha" + Date.now() }]);
+        showToast("Hotel allocation added");
+      }
+      setHotelModal(false);
+    } catch { showToast("Failed to save hotel allocation", "error"); }
   };
 
-  const deleteHotel = (id: string) => { setHotelAllocations(hotelAllocations.filter((h) => h.id !== id)); showToast("Hotel allocation removed", "info"); };
+  const deleteHotel = async (id: string) => {
+    try {
+      await setHotelAllocations(hotelAllocations.filter((h) => h.id !== id));
+      showToast("Hotel allocation removed", "info");
+    } catch { showToast("Failed to delete", "error"); }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -156,7 +170,7 @@ export default function Inventory() {
                         <button onClick={() => openEditAir(a)} className="text-navy-400 hover:text-primary-600 p-1.5 rounded-lg hover:bg-primary-50">
                           <Pencil className="w-4 h-4" />
                         </button>
-                        <button onClick={() => deleteAir(a.id)} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
+                        <button onClick={() => void deleteAir(a.id)} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -232,7 +246,7 @@ export default function Inventory() {
                         <button onClick={() => openEditHotel(h)} className="text-navy-400 hover:text-primary-600 p-1.5 rounded-lg hover:bg-primary-50">
                           <Pencil className="w-4 h-4" />
                         </button>
-                        <button onClick={() => deleteHotel(h.id)} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
+                        <button onClick={() => void deleteHotel(h.id)} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -324,7 +338,7 @@ export default function Inventory() {
           </div>
           <div className="flex gap-3 justify-end">
             <button onClick={() => setAirModal(false)} className="btn-outline">Cancel</button>
-            <button onClick={saveAir} className="btn-primary">Save</button>
+            <button onClick={() => void saveAir()} className="btn-primary">Save</button>
           </div>
         </div>
       </Modal>
@@ -382,7 +396,7 @@ export default function Inventory() {
           </div>
           <div className="flex gap-3 justify-end">
             <button onClick={() => setHotelModal(false)} className="btn-outline">Cancel</button>
-            <button onClick={saveHotel} className="btn-primary">Save</button>
+            <button onClick={() => void saveHotel()} className="btn-primary">Save</button>
           </div>
         </div>
       </Modal>

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, Moon, FileText, Pencil, Trash2, Calculator, Bus, Car } from "lucide-react";
+import { Plus, Moon, FileText, Pencil, Trash2, Calculator } from "lucide-react";
 import { useApp } from "../context";
 import Modal from "../components/Modal";
 import { formatPKR, formatDate } from "../data";
@@ -30,10 +30,12 @@ const emptyPackage: Omit<HajjPackage, "id"> = {
   durationDays: 30,
   description: "",
   inclusions: [],
+  airlineInventoryId: undefined,
+  hotelMakkahId: undefined,
 };
 
 export default function Hajj() {
-  const { role, hajjFormBatches, setHajjFormBatches, hajjPackages, setHajjPackages, showToast } = useApp();
+  const { role, hajjFormBatches, setHajjFormBatches, hajjPackages, saveHajjPackage, deleteHajjPackage, airlineTickets, hotelAllocations, showToast } = useApp();
   const isAdmin = role === "admin";
 
   const [tab, setTab] = useState<"packages" | "forms">("packages");
@@ -101,7 +103,7 @@ export default function Hajj() {
   const openEditPkg = (p: HajjPackage) => { setEditPkgId(p.id); const { id, ...rest } = p; setPkgForm(rest); setPkgErrors({}); setPkgModal(true); };
   const deletePkg = async (id: string) => {
     try {
-      await setHajjPackages(hajjPackages.filter((p) => p.id !== id));
+      await deleteHajjPackage(id);
       showToast("Package deleted", "info");
     } catch { showToast("Failed to delete package", "error"); }
   };
@@ -111,13 +113,8 @@ export default function Hajj() {
     setPkgErrors(errors);
     if (hasErrors(errors)) { showToast("Please fix the errors", "error"); return; }
     try {
-      if (editPkgId) {
-        await setHajjPackages(hajjPackages.map((p) => (p.id === editPkgId ? { ...pkgForm, id: editPkgId } : p)));
-        showToast("Package updated successfully");
-      } else {
-        await setHajjPackages([...hajjPackages, { ...pkgForm, id: "hp" + Date.now() }]);
-        showToast("Package saved successfully");
-      }
+      await saveHajjPackage(editPkgId ? { ...pkgForm, id: editPkgId } : { ...pkgForm, id: "hp" + Date.now() });
+      showToast(editPkgId ? "Package updated successfully" : "Package saved successfully");
       setPkgModal(false);
     } catch { showToast("Failed to save package", "error"); }
   };
@@ -361,18 +358,62 @@ export default function Hajj() {
           <div>
             <h4 className="text-sm font-semibold text-navy-700 mb-3">Cost Components (per pilgrim)</h4>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {(["hotelCost", "ticketCost", "visaCost", "transportCost", "foodCost", "otherCost"] as const).map((field) => (
-                <div key={field}>
-                  <label className="label">{{ hotelCost: "Hotel Cost", ticketCost: "Ticket Cost", visaCost: "Visa Cost", transportCost: "Transport Cost", foodCost: "Food Cost", otherCost: "Other Expenses" }[field]}</label>
-                  <input type="number" min="0" className="input" value={pkgForm[field] || ""} onChange={(e) => setPkgForm({ ...pkgForm, [field]: Number(e.target.value) })} />
-                </div>
-              ))}
+              {/* Airline — from inventory */}
+              <div className="sm:col-span-3">
+                <label className="label">Airline Ticket <span className="text-navy-400 font-normal">(from inventory)</span></label>
+                <select className="input" value={pkgForm.airlineInventoryId ?? ""} onChange={(e) => {
+                  const inv = airlineTickets.find((a) => a.id === e.target.value);
+                  setPkgForm({ ...pkgForm, airlineInventoryId: e.target.value || undefined, ticketCost: inv ? inv.costPerTicket : 0 });
+                }}>
+                  <option value="">— None / Manual —</option>
+                  {airlineTickets.map((a) => (
+                    <option key={a.id} value={a.id}>{a.airline} · {a.route} · {formatDate(a.travelDate)} · {formatPKR(a.costPerTicket)} · {a.quantity - a.sold} left</option>
+                  ))}
+                </select>
+                {!pkgForm.airlineInventoryId && (
+                  <input type="number" min="0" className="input mt-2" placeholder="Manual ticket cost" value={pkgForm.ticketCost || ""} onChange={(e) => setPkgForm({ ...pkgForm, ticketCost: Number(e.target.value) })} />
+                )}
+                {pkgForm.airlineInventoryId && <p className="text-xs text-primary-600 mt-1">Cost auto-filled: {formatPKR(pkgForm.ticketCost)}</p>}
+              </div>
+              {/* Hotel Makkah — from inventory */}
+              <div className="sm:col-span-3">
+                <label className="label">Hotel Makkah <span className="text-navy-400 font-normal">(from inventory)</span></label>
+                <select className="input" value={pkgForm.hotelMakkahId ?? ""} onChange={(e) => {
+                  const inv = hotelAllocations.find((h) => h.id === e.target.value);
+                  setPkgForm({ ...pkgForm, hotelMakkahId: e.target.value || undefined, hotelCost: inv ? inv.costPerNight : 0 });
+                }}>
+                  <option value="">— None / Manual —</option>
+                  {hotelAllocations.filter((h) => h.city === "Makkah").map((h) => (
+                    <option key={h.id} value={h.id}>{h.hotelName} · {h.roomType} · {formatPKR(h.costPerNight)}/night · {h.quantity - h.booked} left</option>
+                  ))}
+                </select>
+                {!pkgForm.hotelMakkahId && (
+                  <input type="number" min="0" className="input mt-2" placeholder="Manual hotel cost" value={pkgForm.hotelCost || ""} onChange={(e) => setPkgForm({ ...pkgForm, hotelCost: Number(e.target.value) })} />
+                )}
+                {pkgForm.hotelMakkahId && <p className="text-xs text-primary-600 mt-1">Cost auto-filled: {formatPKR(pkgForm.hotelCost)}</p>}
+              </div>
+              <div>
+                <label className="label">Visa Cost</label>
+                <input type="number" min="0" className="input" value={pkgForm.visaCost || ""} onChange={(e) => setPkgForm({ ...pkgForm, visaCost: Number(e.target.value) })} />
+              </div>
+              <div>
+                <label className="label">Transport Cost</label>
+                <input type="number" min="0" className="input" value={pkgForm.transportCost || ""} onChange={(e) => setPkgForm({ ...pkgForm, transportCost: Number(e.target.value) })} />
+              </div>
               <div>
                 <label className="label">Transport Type</label>
                 <select className="input" value={pkgForm.transportType} onChange={(e) => setPkgForm({ ...pkgForm, transportType: e.target.value as TransportType })}>
                   <option value="Bus">Bus</option>
                   <option value="Car">Car</option>
                 </select>
+              </div>
+              <div>
+                <label className="label">Food Cost</label>
+                <input type="number" min="0" className="input" value={pkgForm.foodCost || ""} onChange={(e) => setPkgForm({ ...pkgForm, foodCost: Number(e.target.value) })} />
+              </div>
+              <div>
+                <label className="label">Other Expenses</label>
+                <input type="number" min="0" className="input" value={pkgForm.otherCost || ""} onChange={(e) => setPkgForm({ ...pkgForm, otherCost: Number(e.target.value) })} />
               </div>
               <div>
                 <label className="label">Duration (days)</label>

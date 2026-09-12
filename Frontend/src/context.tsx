@@ -13,7 +13,6 @@ import type {
   HajjPackage,
   HotelAllocation,
   Investment,
-  LedgerEntry,
   OfficeExpense,
   Role,
   Task,
@@ -35,13 +34,13 @@ interface AppContextValue {
   hajjFormBatches: HajjFormBatch[];
   setHajjFormBatches: (b: HajjFormBatch[]) => Promise<void>;
   hajjPackages: HajjPackage[];
-  setHajjPackages: (p: HajjPackage[]) => Promise<void>;
+  saveHajjPackage: (p: HajjPackage) => Promise<void>;
+  deleteHajjPackage: (id: string) => Promise<void>;
   umrahPackages: UmrahPackage[];
-  setUmrahPackages: (p: UmrahPackage[]) => Promise<void>;
+  saveUmrahPackage: (p: UmrahPackage) => Promise<void>;
+  deleteUmrahPackage: (id: string) => Promise<void>;
   bookings: Booking[];
   setBookings: (b: Booking[]) => void;
-  ledger: LedgerEntry[];
-  setLedger: (l: LedgerEntry[]) => Promise<void>;
   investments: Investment[];
   setInvestments: (i: Investment[]) => Promise<void>;
   officeExpenses: OfficeExpense[];
@@ -69,7 +68,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [hajjPackages, setHajjPackagesState] = useState<HajjPackage[]>([]);
   const [umrahPackages, setUmrahPackagesState] = useState<UmrahPackage[]>([]);
   const [bookings, setBookingsState] = useState<Booking[]>([]);
-  const [ledger, setLedgerState] = useState<LedgerEntry[]>([]);
   const [investments, setInvestmentsState] = useState<Investment[]>([]);
   const [officeExpenses, setOfficeExpensesState] = useState<OfficeExpense[]>([]);
   const [airlineTickets, setAirlineTicketsState] = useState<AirlineTicketBatch[]>([]);
@@ -82,7 +80,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setHajjPackagesState(loaded.hajjPackages);
     setUmrahPackagesState(loaded.umrahPackages);
     setBookingsState(loaded.bookings);
-    setLedgerState(loaded.ledger);
     setInvestmentsState(loaded.investments);
     setOfficeExpensesState(loaded.officeExpenses);
     setAirlineTicketsState(loaded.airlineTickets);
@@ -115,7 +112,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setHajjPackagesState([]);
         setUmrahPackagesState([]);
         setBookingsState([]);
-        setLedgerState([]);
         setInvestmentsState([]);
         setOfficeExpensesState([]);
         setAirlineTicketsState([]);
@@ -153,7 +149,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setHajjPackagesState([]);
     setUmrahPackagesState([]);
     setBookingsState([]);
-    setLedgerState([]);
     setInvestmentsState([]);
     setOfficeExpensesState([]);
     setAirlineTicketsState([]);
@@ -167,24 +162,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try { await dataApi.saveForms(items); }
     catch (e) { setHajjFormBatchesState(prev); throw e; }
   }, []);
-  const setHajjPackages = useCallback(async (items: HajjPackage[]) => {
-    const prev = await new Promise<HajjPackage[]>((res) => { setHajjPackagesState((s) => { res(s); return items; }); });
-    try { const saved = await dataApi.saveHajjPackages(items); setHajjPackagesState(saved); }
-    catch (e) { setHajjPackagesState(prev); throw e; }
-  }, []);
-  const setUmrahPackages = useCallback(async (items: UmrahPackage[]) => {
-    const prev = await new Promise<UmrahPackage[]>((res) => { setUmrahPackagesState((s) => { res(s); return items; }); });
-    try { const saved = await dataApi.saveUmrahPackages(items); setUmrahPackagesState(saved); }
-    catch (e) { setUmrahPackagesState(prev); throw e; }
-  }, []);
-  const setBookings = useCallback((items: Booking[]) => { setBookingsState(items); }, []);
-  const setLedger = useCallback(async (items: LedgerEntry[]) => {
-    const prev = await new Promise<LedgerEntry[]>((res) => { setLedgerState((s) => { res(s); return items; }); });
+  const saveHajjPackage = useCallback(async (item: HajjPackage) => {
+    const isNew = item.id.length !== 36;
+    const prev = hajjPackages;
+    setHajjPackagesState((s) => isNew ? [...s, item] : s.map((p) => p.id === item.id ? item : p));
     try {
-      await dataApi.saveLedger(items);
-      if (role) { const loaded = await dataApi.load(role); setLedgerState(loaded.ledger); }
-    } catch (e) { setLedgerState(prev); throw e; }
-  }, [role]);
+      const saved = await dataApi.saveHajjPackage(item);
+      setHajjPackagesState((s) => isNew ? [...s.filter((p) => p.id === item.id ? false : true), saved] : s.map((p) => p.id === saved.id ? saved : p));
+    } catch (e) { setHajjPackagesState(prev); throw e; }
+  }, [hajjPackages]);
+  const deleteHajjPackage = useCallback(async (id: string) => {
+    const prev = hajjPackages;
+    setHajjPackagesState((s) => s.filter((p) => p.id !== id));
+    try { await dataApi.deleteHajjPackage(id); }
+    catch (e) { setHajjPackagesState(prev); throw e; }
+  }, [hajjPackages]);
+  const saveUmrahPackage = useCallback(async (item: UmrahPackage) => {
+    const isNew = item.id.length !== 36;
+    const prev = umrahPackages;
+    setUmrahPackagesState((s) => isNew ? [...s, item] : s.map((p) => p.id === item.id ? item : p));
+    try {
+      const saved = await dataApi.saveUmrahPackage(item);
+      setUmrahPackagesState((s) => isNew ? [...s.filter((p) => p.id === item.id ? false : true), saved] : s.map((p) => p.id === saved.id ? saved : p));
+    } catch (e) { setUmrahPackagesState(prev); throw e; }
+  }, [umrahPackages]);
+  const deleteUmrahPackage = useCallback(async (id: string) => {
+    const prev = umrahPackages;
+    setUmrahPackagesState((s) => s.filter((p) => p.id !== id));
+    try { await dataApi.deleteUmrahPackage(id); }
+    catch (e) { setUmrahPackagesState(prev); throw e; }
+  }, [umrahPackages]);
+  const setBookings = useCallback((items: Booking[]) => { setBookingsState(items); }, []);
   const setInvestments = useCallback(async (items: Investment[]) => {
     const prev = await new Promise<Investment[]>((res) => { setInvestmentsState((s) => { res(s); return items; }); });
     try { await dataApi.saveInvestments(items); }
@@ -197,12 +205,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
   const setAirlineTickets = useCallback(async (items: AirlineTicketBatch[]) => {
     const prev = await new Promise<AirlineTicketBatch[]>((res) => { setAirlineTicketsState((s) => { res(s); return items; }); });
-    try { await dataApi.saveAirline(items); }
+    try { const saved = await dataApi.saveAirline(items); setAirlineTicketsState(saved); }
     catch (e) { setAirlineTicketsState(prev); throw e; }
   }, []);
   const setHotelAllocations = useCallback(async (items: HotelAllocation[]) => {
     const prev = await new Promise<HotelAllocation[]>((res) => { setHotelAllocationsState((s) => { res(s); return items; }); });
-    try { await dataApi.saveHotels(items); }
+    try { const saved = await dataApi.saveHotels(items); setHotelAllocationsState(saved); }
     catch (e) { setHotelAllocationsState(prev); throw e; }
   }, []);
   const createBooking = useCallback(async (booking: Booking) => {
@@ -254,13 +262,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         hajjFormBatches,
         setHajjFormBatches,
         hajjPackages,
-        setHajjPackages,
+        saveHajjPackage,
+        deleteHajjPackage,
         umrahPackages,
-        setUmrahPackages,
+        saveUmrahPackage,
+        deleteUmrahPackage,
         bookings,
         setBookings,
-        ledger,
-        setLedger,
         investments,
         setInvestments,
         officeExpenses,

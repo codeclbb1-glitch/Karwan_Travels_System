@@ -36,7 +36,6 @@ export default function Dashboard() {
     bookings,
     hajjPackages,
     umrahPackages,
-    ledger,
     investments,
     officeExpenses,
   } = useApp();
@@ -45,15 +44,14 @@ export default function Dashboard() {
 
   const stats = useMemo(() => {
     const totalRevenue = bookings.reduce((s, b) => s + b.advanceAmount, 0);
-    const totalCost = ledger.filter((e) => e.type === "expense").reduce((s, e) => s + e.amount, 0);
-    const totalIncome = ledger.filter((e) => e.type === "income").reduce((s, e) => s + e.amount, 0);
-    const totalProfit = totalIncome - totalCost;
+    const totalOutstanding = bookings.reduce((s, b) => s + (b.finalPrice - b.advanceAmount), 0);
+    const totalExpenses = officeExpenses.reduce((s, e) => s + e.amount, 0);
+    const totalProfit = totalRevenue - totalExpenses;
     const activePackages = hajjPackages.length + umrahPackages.length;
     const pendingBookings = bookings.filter((b) => b.paymentStatus !== "Paid").length;
     const totalInvested = investments.reduce((s, i) => s + i.amountInvested, 0);
-    const totalExpenses = officeExpenses.reduce((s, e) => s + e.amount, 0);
-    return { totalRevenue, totalProfit, activePackages, pendingBookings, totalInvested, totalExpenses };
-  }, [bookings, hajjPackages, umrahPackages, ledger, investments, officeExpenses]);
+    return { totalRevenue, totalOutstanding, totalProfit, activePackages, pendingBookings, totalInvested, totalExpenses };
+  }, [bookings, hajjPackages, umrahPackages, investments, officeExpenses]);
 
   const upcomingDepartures = useMemo(() => {
     return [...bookings]
@@ -70,17 +68,22 @@ export default function Dashboard() {
   // Chart data
   const incomeVsExpense = useMemo(() => {
     const map = new Map<string, { income: number; expense: number }>();
-    ledger.forEach((e) => {
+    bookings.forEach((b) => {
+      const month = new Date(b.bookingDate).toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+      const entry = map.get(month) ?? { income: 0, expense: 0 };
+      entry.income += b.advanceAmount;
+      map.set(month, entry);
+    });
+    officeExpenses.forEach((e) => {
       const month = new Date(e.date).toLocaleDateString("en-US", { month: "short", year: "2-digit" });
       const entry = map.get(month) ?? { income: 0, expense: 0 };
-      if (e.type === "income") entry.income += e.amount;
-      else entry.expense += e.amount;
+      entry.expense += e.amount;
       map.set(month, entry);
     });
     return Array.from(map.entries())
       .sort((a, b) => new Date("1 " + a[0]).getTime() - new Date("1 " + b[0]).getTime())
       .map(([month, v]) => ({ month, ...v }));
-  }, [ledger]);
+  }, [bookings, officeExpenses]);
 
   const packageDistribution = useMemo(() => {
     return [
@@ -161,8 +164,8 @@ export default function Dashboard() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Revenue" value={formatPKRShort(stats.totalRevenue)} icon={<Wallet className="w-6 h-6" />} accent="primary" />
-        <StatCard label="Net Profit" value={formatPKRShort(Math.round(stats.totalProfit))} icon={<TrendingUp className="w-6 h-6" />} accent={stats.totalProfit >= 0 ? "gold" : "red"} />
+        <StatCard label="Total Collected" value={formatPKRShort(stats.totalRevenue)} icon={<Wallet className="w-6 h-6" />} accent="primary" />
+        <StatCard label="Outstanding" value={formatPKRShort(stats.totalOutstanding)} icon={<TrendingUp className="w-6 h-6" />} accent="gold" />
         <StatCard label="Active Packages" value={String(stats.activePackages)} icon={<Package className="w-6 h-6" />} accent="navy" />
         <StatCard label="Pending Bookings" value={String(stats.pendingBookings)} icon={<CalendarClock className="w-6 h-6" />} accent="red" />
       </div>

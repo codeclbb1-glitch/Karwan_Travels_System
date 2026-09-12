@@ -1,203 +1,181 @@
 import { useState, useMemo } from "react";
-import { Plus, Trash2, Wallet, TrendingUp, TrendingDown, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
+import { Wallet, ArrowUpCircle, ArrowDownCircle, Clock, Search } from "lucide-react";
 import { useApp } from "../context";
-import Modal from "../components/Modal";
 import StatCard from "../components/StatCard";
 import { formatPKR, formatPKRShort, formatDate } from "../data";
-import type { LedgerEntry } from "../types";
-import { validators, collectErrors, hasErrors, FieldError, inputClass } from "../lib/validation";
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
 
 export default function Finance() {
-  const { ledger, setLedger, showToast } = useApp();
+  const { bookings, officeExpenses } = useApp();
+  const [search, setSearch] = useState("");
 
-  const [modal, setModal] = useState(false);
-  const [form, setForm] = useState<Omit<LedgerEntry, "id">>({
-    type: "income",
-    category: "",
-    amount: 0,
-    date: new Date().toISOString().slice(0, 10),
-    description: "",
-  });
+  const stats = useMemo(() => {
+    const hajjBookings = bookings.filter((b) => b.serviceType === "Hajj");
+    const umrahBookings = bookings.filter((b) => b.serviceType === "Umrah");
 
-  const totals = useMemo(() => {
-    const income = ledger.filter((e) => e.type === "income").reduce((s, e) => s + e.amount, 0);
-    const expense = ledger.filter((e) => e.type === "expense").reduce((s, e) => s + e.amount, 0);
-    return { income, expense, net: income - expense };
-  }, [ledger]);
+    const sum = (arr: typeof bookings, key: "advanceAmount" | "finalPrice") =>
+      arr.reduce((s, b) => s + b[key], 0);
+
+    const hajjCollected = sum(hajjBookings, "advanceAmount");
+    const hajjTotal = sum(hajjBookings, "finalPrice");
+    const umrahCollected = sum(umrahBookings, "advanceAmount");
+    const umrahTotal = sum(umrahBookings, "finalPrice");
+
+    const totalCollected = hajjCollected + umrahCollected;
+    const totalOutstanding = (hajjTotal - hajjCollected) + (umrahTotal - umrahCollected);
+    const totalExpenses = officeExpenses.reduce((s, e) => s + e.amount, 0);
+
+    return {
+      totalCollected, totalOutstanding, totalExpenses,
+      net: totalCollected - totalExpenses,
+      hajjCollected, hajjOutstanding: hajjTotal - hajjCollected,
+      umrahCollected, umrahOutstanding: umrahTotal - umrahCollected,
+    };
+  }, [bookings, officeExpenses]);
 
   const chartData = useMemo(() => {
-    const sorted = [...ledger].sort((a, b) => a.date.localeCompare(b.date));
-    let running = 0;
-    return sorted.map((e) => {
-      running += e.type === "income" ? e.amount : -e.amount;
-      return { date: formatDate(e.date).slice(0, 6), amount: running, type: e.type };
+    const months: Record<string, { month: string; collected: number; expenses: number }> = {};
+
+    bookings.forEach((b) => {
+      const key = b.bookingDate.slice(0, 7);
+      if (!months[key]) months[key] = { month: key, collected: 0, expenses: 0 };
+      months[key].collected += b.advanceAmount;
     });
-  }, [ledger]);
 
-  const openAdd = () => {
-    setForm({ type: "income", category: "", amount: 0, date: new Date().toISOString().slice(0, 10), description: "" });
-    setModal(true);
-  };
+    officeExpenses.forEach((e) => {
+      const key = e.date.slice(0, 7);
+      if (!months[key]) months[key] = { month: key, collected: 0, expenses: 0 };
+      months[key].expenses += e.amount;
+    });
 
-  const save = async () => {
-    const errors = collectErrors([
-      ["category", validators.required(form.category, "Category")],
-      ["amount", validators.positiveNumber(form.amount, "Amount")],
-      ["date", validators.dateRequired(form.date, "Date")],
-    ]);
-    if (hasErrors(errors)) {
-      showToast(Object.values(errors)[0], "error");
-      return;
-    }
-    try {
-      await setLedger([{ ...form, id: "le" + Date.now() }, ...ledger]);
-      showToast("Entry added successfully");
-      setModal(false);
-    } catch {
-      showToast("Failed to save entry", "error");
-    }
-  };
+    return Object.values(months)
+      .sort((a, b) => a.month.localeCompare(b.month))
+      .map((d) => ({
+        ...d,
+        month: new Date(d.month + "-01").toLocaleDateString("en-PK", { month: "short", year: "2-digit" }),
+      }));
+  }, [bookings, officeExpenses]);
 
-  const remove = async (id: string) => {
-    try {
-      await setLedger(ledger.filter((e) => e.id !== id));
-      showToast("Entry removed", "info");
-    } catch {
-      showToast("Failed to remove entry", "error");
-    }
-  };
+  const filteredBookings = useMemo(() => {
+    const q = search.toLowerCase();
+    if (!q) return bookings;
+    return bookings.filter((b) =>
+      b.customerName.toLowerCase().includes(q) ||
+      b.packageName.toLowerCase().includes(q) ||
+      b.serviceType.toLowerCase().includes(q)
+    );
+  }, [bookings, search]);
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="section-title">Financial Management</h1>
-          <p className="text-navy-400 text-sm mt-1">Income & expense ledger with running totals</p>
+      <div>
+        <h1 className="section-title">Financial Overview</h1>
+        <p className="text-navy-400 text-sm mt-1">Auto-calculated from bookings and office expenses</p>
+      </div>
+
+      {/* Top stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Total Collected" value={formatPKRShort(stats.totalCollected)} icon={<ArrowUpCircle className="w-6 h-6" />} accent="primary" />
+        <StatCard label="Outstanding" value={formatPKRShort(stats.totalOutstanding)} icon={<Clock className="w-6 h-6" />} accent="gold" />
+        <StatCard label="Office Expenses" value={formatPKRShort(stats.totalExpenses)} icon={<ArrowDownCircle className="w-6 h-6" />} accent="red" />
+        <StatCard label="Net Balance" value={formatPKRShort(stats.net)} icon={<Wallet className="w-6 h-6" />} accent={stats.net >= 0 ? "primary" : "red"} />
+      </div>
+
+      {/* Hajj vs Umrah breakdown */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="card p-5 space-y-3">
+          <h2 className="font-display font-bold text-navy-900">Hajj Income</h2>
+          <div className="flex justify-between text-sm">
+            <span className="text-navy-500">Collected</span>
+            <span className="font-semibold text-primary-600">{formatPKR(stats.hajjCollected)}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-navy-500">Outstanding</span>
+            <span className="font-semibold text-gold-600">{formatPKR(stats.hajjOutstanding)}</span>
+          </div>
+          <div className="border-t border-navy-100 pt-2 flex justify-between text-sm font-bold">
+            <span className="text-navy-700">Total Value</span>
+            <span className="text-navy-900">{formatPKR(stats.hajjCollected + stats.hajjOutstanding)}</span>
+          </div>
         </div>
-        <button onClick={openAdd} className="btn-primary">
-          <Plus className="w-4 h-4" /> Add Entry
-        </button>
+        <div className="card p-5 space-y-3">
+          <h2 className="font-display font-bold text-navy-900">Umrah Income</h2>
+          <div className="flex justify-between text-sm">
+            <span className="text-navy-500">Collected</span>
+            <span className="font-semibold text-primary-600">{formatPKR(stats.umrahCollected)}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-navy-500">Outstanding</span>
+            <span className="font-semibold text-gold-600">{formatPKR(stats.umrahOutstanding)}</span>
+          </div>
+          <div className="border-t border-navy-100 pt-2 flex justify-between text-sm font-bold">
+            <span className="text-navy-700">Total Value</span>
+            <span className="text-navy-900">{formatPKR(stats.umrahCollected + stats.umrahOutstanding)}</span>
+          </div>
+        </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard label="Total Income" value={formatPKRShort(totals.income)} icon={<ArrowUpCircle className="w-6 h-6" />} accent="primary" />
-        <StatCard label="Total Expense" value={formatPKRShort(totals.expense)} icon={<ArrowDownCircle className="w-6 h-6" />} accent="red" />
-        <StatCard label="Net Balance" value={formatPKRShort(totals.net)} icon={<Wallet className="w-6 h-6" />} accent={totals.net >= 0 ? "gold" : "red"} />
-      </div>
-
-      {/* Chart */}
+      {/* Monthly bar chart */}
       <div className="card p-5">
-        <h2 className="font-display font-bold text-navy-900 mb-4">Running Balance Trend</h2>
-        <ResponsiveContainer width="100%" height={250}>
-          <AreaChart data={chartData}>
-            <defs>
-              <linearGradient id="balanceGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#15803d" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#15803d" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#eef2f6" />
-            <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748b" }} />
-            <YAxis tick={{ fontSize: 11, fill: "#64748b" }} tickFormatter={(v) => formatPKRShort(v).replace("Rs. ", "")} />
-            <Tooltip formatter={(v: number) => formatPKR(v)} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
-            <Area type="monotone" dataKey="amount" name="Balance" stroke="#15803d" strokeWidth={2} fill="url(#balanceGrad)" />
-          </AreaChart>
-        </ResponsiveContainer>
+        <h2 className="font-display font-bold text-navy-900 mb-4">Monthly: Collected vs Expenses</h2>
+        {chartData.length === 0 ? (
+          <p className="text-navy-400 text-sm text-center py-10">No data yet</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={chartData} barGap={4}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#eef2f6" />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#64748b" }} />
+              <YAxis tick={{ fontSize: 11, fill: "#64748b" }} tickFormatter={(v) => formatPKRShort(v).replace("Rs. ", "")} />
+              <Tooltip formatter={(v: number) => formatPKR(v)} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Bar dataKey="collected" name="Collected" fill="#15803d" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="expenses" name="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
-      {/* Ledger table */}
+      {/* Bookings income table */}
       <div className="card overflow-hidden">
-        <div className="px-5 py-4 border-b border-navy-100">
-          <h2 className="font-display font-bold text-navy-900">Ledger Entries</h2>
+        <div className="px-5 py-4 border-b border-navy-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h2 className="font-display font-bold text-navy-900">Booking Income</h2>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-navy-400" />
+            <input className="input pl-9 w-56 text-sm" placeholder="Search customer or package..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-navy-50 border-b border-navy-100">
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Date</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Customer</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Package</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Type</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Category</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Description</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Amount</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Action</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Collected</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Outstanding</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-navy-50">
-              {ledger.map((e) => (
-                <tr key={e.id} className="table-row-hover">
-                  <td className="px-4 py-3 text-sm text-navy-500">{formatDate(e.date)}</td>
+              {filteredBookings.length === 0 && (
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-navy-400 text-sm">{search ? "No results found" : "No bookings yet"}</td></tr>
+              )}
+              {filteredBookings.map((b) => (
+                <tr key={b.id} className="table-row-hover">
+                  <td className="px-4 py-3 text-sm text-navy-500">{formatDate(b.bookingDate)}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-navy-700">{b.customerName}</td>
+                  <td className="px-4 py-3 text-sm text-navy-500">{b.packageName}</td>
                   <td className="px-4 py-3">
-                    <span className={`badge ${e.type === "income" ? "badge-green" : "badge-red"}`}>
-                      {e.type === "income" ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                      {e.type}
-                    </span>
+                    <span className={`badge ${b.serviceType === "Hajj" ? "badge-green" : "badge-blue"}`}>{b.serviceType}</span>
                   </td>
-                  <td className="px-4 py-3 text-sm font-medium text-navy-700">{e.category}</td>
-                  <td className="px-4 py-3 text-sm text-navy-500">{e.description}</td>
-                  <td className={`px-4 py-3 text-right text-sm font-bold ${e.type === "income" ? "text-primary-600" : "text-red-500"}`}>
-                    {e.type === "income" ? "+" : "−"}{formatPKR(e.amount)}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <button onClick={() => void remove(e.id)} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
+                  <td className="px-4 py-3 text-right text-sm font-semibold text-primary-600">{formatPKR(b.advanceAmount)}</td>
+                  <td className="px-4 py-3 text-right text-sm font-semibold text-gold-600">{formatPKR(b.finalPrice - b.advanceAmount)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
-
-      <Modal open={modal} onClose={() => setModal(false)} title="Add Ledger Entry">
-        <div className="space-y-4">
-          <div>
-            <label className="label">Type</label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setForm({ ...form, type: "income" })}
-                className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all text-sm font-medium ${
-                  form.type === "income" ? "border-primary-500 bg-primary-50 text-primary-700" : "border-navy-100 text-navy-400"
-                }`}
-              >
-                <ArrowUpCircle className="w-5 h-5" /> Income
-              </button>
-              <button
-                onClick={() => setForm({ ...form, type: "expense" })}
-                className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all text-sm font-medium ${
-                  form.type === "expense" ? "border-red-500 bg-red-50 text-red-600" : "border-navy-100 text-navy-400"
-                }`}
-              >
-                <ArrowDownCircle className="w-5 h-5" /> Expense
-              </button>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="label">Category</label>
-              <input className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="e.g. Hajj Booking" />
-            </div>
-            <div>
-              <label className="label">Amount (PKR)</label>
-              <input type="number" className="input" value={form.amount || ""} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} />
-            </div>
-          </div>
-          <div>
-            <label className="label">Date</label>
-            <input type="date" className="input" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
-          </div>
-          <div>
-            <label className="label">Description</label>
-            <input className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Description" />
-          </div>
-          <div className="flex gap-3 justify-end">
-            <button onClick={() => setModal(false)} className="btn-outline">Cancel</button>
-            <button onClick={() => void save()} className="btn-primary">Save Entry</button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }

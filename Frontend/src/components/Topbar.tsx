@@ -41,7 +41,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
           </div>
           <div>
             <h1 className="font-display font-bold text-navy-900 text-base lg:text-lg leading-tight">
-              Karwan Travels <span className="text-gold-600">(KMR)</span>
+              Karwan-e-Miftah <span className="text-gold-600"></span>
             </h1>
             <p className="text-xs text-navy-400 hidden sm:block">Hajj & Umrah Management System</p>
           </div>

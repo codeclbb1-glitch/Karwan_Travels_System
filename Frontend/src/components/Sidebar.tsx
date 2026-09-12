@@ -17,6 +17,7 @@ import {
   Users,
   AlertTriangle,
   ClipboardList,
+  FileText,
 } from "lucide-react";
 import { useApp } from "../context";
 
@@ -44,6 +45,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
     { to: "/users", label: "User Management", icon: Users, show: isAdmin },
     { to: "/inventory", label: "Inventory", icon: Package, show: true },
     { to: "/tasks", label: "Tasks", icon: ClipboardList, show: true },
+    { to: "/pamphlet", label: "Pamphlet Generator", icon: FileText, show: true },
     { to: "/settings", label: "Settings", icon: Settings, show: true },
   ].filter((item) => item.show);
 
@@ -73,11 +75,11 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         {/* Logo */}
         <div className="flex items-center justify-between px-5 py-5 border-b border-navy-100">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary-700 flex items-center justify-center shadow-sm">
-              <span className="text-gold-400 font-display font-bold text-lg">K</span>
+            <div className="w-10 h-10 rounded-xl overflow-hidden shadow-sm border border-navy-100">
+              <img src="/logo.jpeg" alt="KMR Logo" className="w-full h-full object-cover" />
             </div>
             <div>
-              <p className="font-display font-bold text-navy-900 text-sm leading-tight">Karwan Travels</p>
+              <p className="font-display font-bold text-navy-900 text-sm leading-tight">Karwan-e-Miftah</p>
               <p className="text-xs text-navy-400 font-medium">KMR</p>
             </div>
           </div>

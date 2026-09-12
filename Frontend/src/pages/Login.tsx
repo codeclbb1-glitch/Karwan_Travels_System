@@ -41,12 +41,12 @@ export default function Login() {
           
           {/* Top Header */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-sm bg-gold-400 flex items-center justify-center shadow-sm">
-              <span className="text-primary-900 font-display font-extrabold text-xl">K</span>
+            <div className="w-10 h-10 rounded-sm overflow-hidden shadow-sm">
+              <img src="/logo.jpeg" alt="KMR Logo" className="w-full h-full object-cover" />
             </div>
             <div>
               <p className="font-display font-bold text-white text-lg leading-none tracking-wide">
-                Karwan Travels
+                Karwan-e-Miftah
               </p>
               <p className="text-gold-400 text-xs font-semibold tracking-widest mt-1">KMR</p>
             </div>
@@ -88,7 +88,7 @@ export default function Login() {
 
           {/* Bottom Footer */}
           <div className="flex items-center justify-between text-white/40 text-xs font-medium">
-            <p>© {new Date().getFullYear()} Karwan Travels (KMR). All rights reserved.</p>
+            <p>© {new Date().getFullYear()} Karwan-e-Miftah (KMR). All rights reserved.</p>
             <div className="flex items-center gap-1.5">
               <Lock className="w-3 h-3" />
               <span>Secure Server</span>
@@ -102,10 +102,10 @@ export default function Login() {
         
         {/* Mobile-only logo header */}
         <div className="lg:hidden flex flex-col items-center mb-10 w-full max-w-sm">
-          <div className="w-12 h-12 rounded-sm bg-primary-900 flex items-center justify-center mb-4">
-            <span className="text-gold-400 font-display font-extrabold text-2xl">K</span>
+          <div className="w-12 h-12 rounded-sm overflow-hidden shadow-sm mb-4">
+            <img src="/logo.jpeg" alt="KMR Logo" className="w-full h-full object-cover" />
           </div>
-          <h1 className="font-display font-bold text-navy-900 text-2xl">Karwan Travels</h1>
+          <h1 className="font-display font-bold text-navy-900 text-2xl">Karwan-e-Miftah</h1>
           <p className="text-gold-600 text-xs font-semibold tracking-widest mt-1">AGENCY PORTAL</p>
         </div>
 

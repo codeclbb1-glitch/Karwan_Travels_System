@@ -32,6 +32,8 @@ export interface HajjPackage {
   durationDays: number;
   description: string;
   inclusions: string[];
+  airlineInventoryId?: string;
+  hotelMakkahId?: string;
 }
 
 export interface UmrahPackage {
@@ -50,6 +52,9 @@ export interface UmrahPackage {
   durationDays: number;
   description: string;
   inclusions: string[];
+  airlineInventoryId?: string;
+  hotelMadinaId?: string;
+  hotelMakkahId?: string;
 }
 
 export interface Booking {
@@ -73,15 +78,6 @@ export interface Booking {
   customPackageName?: string;
   customPrice?: number;
   customLineItems?: { label: string; price: number }[];
-}
-
-export interface LedgerEntry {
-  id: string;
-  type: "income" | "expense";
-  category: string;
-  amount: number;
-  date: string;
-  description: string;
 }
 
 export interface Investment {

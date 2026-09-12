@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import type { AirlineTicketBatch, Booking, HajjFormBatch, HajjPackage, HotelAllocation, Investment, LedgerEntry, OfficeExpense, Role, Task, UmrahPackage } from "../types";
+import type { AirlineTicketBatch, Booking, HajjFormBatch, HajjPackage, HotelAllocation, Investment, OfficeExpense, Role, Task, UmrahPackage } from "../types";
 
 type Row = Record<string, unknown>;
 const asNumber = (value: unknown) => Number(value ?? 0);
@@ -8,11 +8,14 @@ const unwrap = <T>(value: T[] | T | null): T | null => Array.isArray(value) ? va
 
 const packageToDb = (value: HajjPackage | UmrahPackage) => {
   const common = { name: value.name, transport_type: value.transportType.toLowerCase(), food_cost: value.foodCost, other_cost: value.otherCost, selling_price: value.sellingPrice, agent_price: value.agentPrice, duration_days: value.durationDays, description: value.description, inclusions: value.inclusions };
-  return "hotelCost" in value ? { ...common, mode: value.mode === "Form Resale to Agent" ? "form_resale_to_agent" : "company_organized", hotel_cost: value.hotelCost, ticket_cost: value.ticketCost, visa_cost: value.visaCost, transport_cost: value.transportCost, forms_remaining: value.formsRemaining } : { ...common, airline_cost: value.airlineCost, visa_cost: value.visaCost, hotel_madina_cost: value.hotelMadinaCost, hotel_makkah_cost: value.hotelMakkahCost, transport_cost: value.transportCost };
+  if ("hotelCost" in value) {
+    return { ...common, mode: value.mode === "Form Resale to Agent" ? "form_resale_to_agent" : "company_organized", hotel_cost: value.hotelCost, ticket_cost: value.ticketCost, visa_cost: value.visaCost, transport_cost: value.transportCost, forms_remaining: value.formsRemaining, airline_inventory_id: value.airlineInventoryId || null, hotel_makkah_id: value.hotelMakkahId || null };
+  }
+  return { ...common, airline_cost: value.airlineCost, visa_cost: value.visaCost, hotel_madina_cost: value.hotelMadinaCost, hotel_makkah_cost: value.hotelMakkahCost, transport_cost: value.transportCost, airline_inventory_id: value.airlineInventoryId || null, hotel_madina_id: value.hotelMadinaId || null, hotel_makkah_id: value.hotelMakkahId || null };
 };
 
-const hajjFromDb = (row: Row): HajjPackage => ({ id: asString(row.id), name: asString(row.name), mode: row.mode === "form_resale_to_agent" ? "Form Resale to Agent" : "Company-Organized", hotelCost: asNumber(row.hotel_cost), ticketCost: asNumber(row.ticket_cost), visaCost: asNumber(row.visa_cost), transportCost: asNumber(row.transport_cost), transportType: row.transport_type === "car" ? "Car" : "Bus", foodCost: asNumber(row.food_cost), otherCost: asNumber(row.other_cost), sellingPrice: asNumber(row.selling_price), agentPrice: asNumber(row.agent_price), formsRemaining: asNumber(row.forms_remaining), durationDays: asNumber(row.duration_days), description: asString(row.description), inclusions: Array.isArray(row.inclusions) ? row.inclusions as string[] : [] });
-const umrahFromDb = (row: Row): UmrahPackage => ({ id: asString(row.id), name: asString(row.name), airlineCost: asNumber(row.airline_cost), visaCost: asNumber(row.visa_cost), hotelMadinaCost: asNumber(row.hotel_madina_cost), hotelMakkahCost: asNumber(row.hotel_makkah_cost), transportCost: asNumber(row.transport_cost), transportType: row.transport_type === "car" ? "Car" : "Bus", foodCost: asNumber(row.food_cost), otherCost: asNumber(row.other_cost), sellingPrice: asNumber(row.selling_price), agentPrice: asNumber(row.agent_price), durationDays: asNumber(row.duration_days), description: asString(row.description), inclusions: Array.isArray(row.inclusions) ? row.inclusions as string[] : [] });
+const hajjFromDb = (row: Row): HajjPackage => ({ id: asString(row.id), name: asString(row.name), mode: row.mode === "form_resale_to_agent" ? "Form Resale to Agent" : "Company-Organized", hotelCost: asNumber(row.hotel_cost), ticketCost: asNumber(row.ticket_cost), visaCost: asNumber(row.visa_cost), transportCost: asNumber(row.transport_cost), transportType: row.transport_type === "car" ? "Car" : "Bus", foodCost: asNumber(row.food_cost), otherCost: asNumber(row.other_cost), sellingPrice: asNumber(row.selling_price), agentPrice: asNumber(row.agent_price), formsRemaining: asNumber(row.forms_remaining), durationDays: asNumber(row.duration_days), description: asString(row.description), inclusions: Array.isArray(row.inclusions) ? row.inclusions as string[] : [], airlineInventoryId: row.airline_inventory_id ? asString(row.airline_inventory_id) : undefined, hotelMakkahId: row.hotel_makkah_id ? asString(row.hotel_makkah_id) : undefined });
+const umrahFromDb = (row: Row): UmrahPackage => ({ id: asString(row.id), name: asString(row.name), airlineCost: asNumber(row.airline_cost), visaCost: asNumber(row.visa_cost), hotelMadinaCost: asNumber(row.hotel_madina_cost), hotelMakkahCost: asNumber(row.hotel_makkah_cost), transportCost: asNumber(row.transport_cost), transportType: row.transport_type === "car" ? "Car" : "Bus", foodCost: asNumber(row.food_cost), otherCost: asNumber(row.other_cost), sellingPrice: asNumber(row.selling_price), agentPrice: asNumber(row.agent_price), durationDays: asNumber(row.duration_days), description: asString(row.description), inclusions: Array.isArray(row.inclusions) ? row.inclusions as string[] : [], airlineInventoryId: row.airline_inventory_id ? asString(row.airline_inventory_id) : undefined, hotelMadinaId: row.hotel_madina_id ? asString(row.hotel_madina_id) : undefined, hotelMakkahId: row.hotel_makkah_id ? asString(row.hotel_makkah_id) : undefined });
 
 export const authApi = {
   signIn: (email: string, password: string) => supabase.auth.signInWithPassword({ email, password }),
@@ -21,76 +24,85 @@ export const authApi = {
   profile: async () => { const { data, error } = await supabase.from("profiles").select("id, full_name, role").eq("id", (await supabase.auth.getUser()).data.user?.id ?? "").maybeSingle(); if (error) throw error; if (!data) throw new Error("Profile not found"); return data as { id: string; full_name: string; role: Role }; },
 };
 
+async function savePackage<T extends { id: string }>(table: string, item: T, fromDb: (r: Row) => T): Promise<T> {
+  const isNew = item.id.length !== 36;
+  const row = packageToDb(item as unknown as HajjPackage);
+  if (isNew) {
+    const { data, error } = await supabase.from(table).insert(row).select().single();
+    if (error) throw error;
+    return fromDb(data as Row);
+  } else {
+    const { data, error } = await supabase.from(table).update(row).eq("id", item.id).select().single();
+    if (error) throw error;
+    return fromDb(data as Row);
+  }
+}
+
 export const dataApi = {
   async load(role: Role) {
-    const [hajj, umrah, forms, bookings, ledger, investments, expenses, airline, hotel] = await Promise.all([
+    const [hajj, umrah, forms, bookings, investments, expenses, airline, hotel] = await Promise.all([
       role === "admin" ? supabase.from("hajj_packages").select("*").is("deleted_at", null).order("created_at", { ascending: false }) : supabase.from("staff_hajj_packages").select("*").order("created_at", { ascending: false }),
       role === "admin" ? supabase.from("umrah_packages").select("*").is("deleted_at", null).order("created_at", { ascending: false }) : supabase.from("staff_umrah_packages").select("*").order("created_at", { ascending: false }),
       role === "admin" ? supabase.from("hajj_form_batches").select("*").order("date_purchased", { ascending: false }) : Promise.resolve({ data: [], error: null }),
       supabase.from("bookings").select("*, customers(*)").order("booking_date", { ascending: false }),
-      role === "admin" ? supabase.from("financial_transactions").select("*").order("transaction_date", { ascending: false }) : Promise.resolve({ data: [], error: null }),
       role === "admin" ? supabase.from("investments").select("*").order("investment_date", { ascending: false }) : Promise.resolve({ data: [], error: null }),
       role === "admin" ? supabase.from("office_expenses").select("*").order("expense_date", { ascending: false }) : Promise.resolve({ data: [], error: null }),
-      supabase.from("airline_inventory_view").select("*").order("travel_date", { ascending: true }),
-      supabase.from("hotel_inventory_view").select("*").order("check_in", { ascending: true }),
+      supabase.from("airline_inventory").select("*").order("travel_date", { ascending: true }),
+      supabase.from("hotel_inventory").select("*").order("check_in", { ascending: true }),
     ]);
-    const result = [hajj, umrah, forms, bookings, ledger, investments, expenses, airline, hotel];
+    const result = [hajj, umrah, forms, bookings, investments, expenses, airline, hotel];
     const failed = result.find((item) => item.error);
     if (failed?.error) throw failed.error;
     return {
       hajjPackages: (hajj.data ?? []).map(hajjFromDb), umrahPackages: (umrah.data ?? []).map(umrahFromDb),
-      hajjFormBatches: (forms.data ?? []).map((r: Row) => ({ id: asString(r.id), batchName: asString(r.batch_name), quantity: asNumber(r.quantity), pricePerForm: asNumber(r.price_per_form), datePurchased: asString(r.date_purchased), used: asNumber(r.used) })),
+      hajjFormBatches: (forms.data ?? []).map((r: Row) => ({ id: asString(r.id), batchName: asString(r.batch_name), quantity: asNumber(r.quantity_purchased), pricePerForm: asNumber(r.price_per_form), datePurchased: asString(r.date_purchased), used: asNumber(r.used) })),
       bookings: (bookings.data ?? []).map((r: Row) => { const customer = (r.customers ?? {}) as Row; return { id: asString(r.id), customerName: asString(customer.full_name), cnicPassport: asString(customer.cnic_passport), phone: asString(customer.phone), address: asString(customer.address), nextOfKin: asString(customer.next_of_kin), nextOfKinPhone: asString(customer.next_of_kin_phone), serviceType: (r.service_type === "umrah" ? "Umrah" : "Hajj") as Booking["serviceType"], packageId: asString(r.service_type === "umrah" ? r.umrah_package_id : r.hajj_package_id), packageName: asString(r.package_name_snapshot), selectedInclusions: Array.isArray(r.selected_inclusions) ? r.selected_inclusions as string[] : [], finalPrice: asNumber(r.final_price), paymentStatus: (r.payment_status === "paid" ? "Paid" : r.payment_status === "partial" ? "Partial" : "Unpaid") as Booking["paymentStatus"], advanceAmount: asNumber(r.advance_amount), bookingDate: asString(r.booking_date), departureDate: asString(r.departure_date) }; }),
-      ledger: (ledger.data ?? []).map((r: Row) => ({ id: asString(r.id), type: r.type as "income" | "expense", category: asString(r.category), amount: asNumber(r.amount), date: asString(r.transaction_date), description: asString(r.description) })),
       investments: (investments.data ?? []).map((r: Row) => ({ id: asString(r.id), name: asString(r.name), ownershipPercent: asNumber(r.ownership_percent), amountInvested: asNumber(r.amount_invested), date: asString(r.investment_date), notes: asString(r.notes) })),
       officeExpenses: (expenses.data ?? []).map((r: Row) => ({ id: asString(r.id), category: ({ salaries: "Salaries", bills: "Bills", rent: "Rent", food: "Food", miscellaneous: "Miscellaneous" } as Record<string, string>)[asString(r.category)] as OfficeExpense["category"], amount: asNumber(r.amount), date: asString(r.expense_date), description: asString(r.description), office: (r.office === "office_2" ? "Office 2" : "Office 1") as OfficeExpense["office"] })),
-      airlineTickets: (airline.data ?? []).map((r: Row) => ({ id: asString(r.id), airline: asString(r.airline_name), route: asString(r.route), quantity: asNumber(r.quantity), costPerTicket: asNumber(r.cost_per_ticket), travelDate: asString(r.travel_date), returnDate: asString(r.return_date), sold: asNumber(r.sold) })),
-      hotelAllocations: (hotel.data ?? []).map((r: Row) => ({ id: asString(r.id), hotelName: asString(r.hotel_name), city: (r.city === "madina" ? "Madina" : "Makkah") as HotelAllocation["city"], roomType: asString(r.room_type), quantity: asNumber(r.quantity), costPerNight: asNumber(r.cost_per_night), checkIn: asString(r.check_in), checkOut: asString(r.check_out), booked: asNumber(r.booked) })),
+      airlineTickets: (airline.data ?? []).map((r: Row) => ({ id: asString(r.id), airline: asString(r.airline_name), route: asString(r.route), quantity: asNumber(r.quantity_purchased), costPerTicket: asNumber(r.cost_per_ticket), travelDate: asString(r.travel_date), returnDate: asString(r.return_date), sold: asNumber(r.quantity_sold) })),
+      hotelAllocations: (hotel.data ?? []).map((r: Row) => ({ id: asString(r.id), hotelName: asString(r.hotel_name), city: (r.city === "madina" ? "Madina" : "Makkah") as HotelAllocation["city"], roomType: asString(r.room_type), quantity: asNumber(r.quantity_blocked), costPerNight: asNumber(r.cost_per_night), checkIn: asString(r.check_in), checkOut: asString(r.check_out), booked: asNumber(r.quantity_booked) })),
     };
   },
 
-  saveHajjPackages: async (items: HajjPackage[]): Promise<HajjPackage[]> => {
-    const rows = items.map((item) => ({ id: item.id.length === 36 ? item.id : undefined, ...packageToDb(item) }));
-    const { data, error } = await supabase.from("hajj_packages").upsert(rows).select();
-    if (error) throw error;
-    return (data ?? []).map(hajjFromDb);
-  },
-  saveUmrahPackages: async (items: UmrahPackage[]): Promise<UmrahPackage[]> => {
-    const rows = items.map((item) => ({ id: item.id.length === 36 ? item.id : undefined, ...packageToDb(item) }));
-    const { data, error } = await supabase.from("umrah_packages").upsert(rows).select();
-    if (error) throw error;
-    return (data ?? []).map(umrahFromDb);
-  },
+  saveHajjPackage: async (item: HajjPackage): Promise<HajjPackage> => savePackage("hajj_packages", item, hajjFromDb),
+  saveUmrahPackage: async (item: UmrahPackage): Promise<UmrahPackage> => savePackage("umrah_packages", item, umrahFromDb),
+  deleteHajjPackage: async (id: string): Promise<void> => { const { error } = await supabase.from("hajj_packages").update({ deleted_at: new Date().toISOString() }).eq("id", id); if (error) throw error; },
+  deleteUmrahPackage: async (id: string): Promise<void> => { const { error } = await supabase.from("umrah_packages").update({ deleted_at: new Date().toISOString() }).eq("id", id); if (error) throw error; },
   createBooking: async (item: Booking) => { const { data, error } = await supabase.rpc("create_booking", { p_service_type: item.serviceType.toLowerCase(), p_package_id: item.packageId || null, p_selected_inclusions: item.selectedInclusions, p_customer_name: item.customerName, p_cnic_passport: item.cnicPassport, p_phone: item.phone, p_address: item.address, p_next_of_kin: item.nextOfKin, p_next_of_kin_phone: item.nextOfKinPhone, p_payment_status: item.paymentStatus.toLowerCase(), p_advance_amount: item.advanceAmount, p_departure_date: item.departureDate || null, p_custom_package_name: item.customPackageName || null, p_custom_price: item.customPrice ?? null }); if (error) throw error; return unwrap(data); },
   saveForms: async (items: HajjFormBatch[]) => {
-    const rows = items.map((item) => ({ id: item.id.length === 36 ? item.id : undefined, batch_name: item.batchName, quantity_purchased: item.quantity, price_per_form: item.pricePerForm, date_purchased: item.datePurchased, used: item.used }));
-    const { error } = await supabase.from("hajj_form_batches").upsert(rows);
-    if (error) throw error;
-  },
-  saveLedger: async (items: LedgerEntry[]) => {
-    const rows = items.map((item) => ({ id: item.id.length === 36 ? item.id : undefined, type: item.type, category: item.category, amount: item.amount, transaction_date: item.date, description: item.description }));
-    const { error } = await supabase.from("financial_transactions").upsert(rows);
-    if (error) throw error;
+    const toRow = (item: HajjFormBatch) => ({ batch_name: item.batchName, quantity_purchased: item.quantity, price_per_form: item.pricePerForm, date_purchased: item.datePurchased, used: item.used });
+    const existing = items.filter((i) => i.id.length === 36);
+    const newItems = items.filter((i) => i.id.length !== 36);
+    if (existing.length) { const { error } = await supabase.from("hajj_form_batches").upsert(existing.map((i) => ({ id: i.id, ...toRow(i) })), { onConflict: "id" }); if (error) throw error; }
+    if (newItems.length) { const { error } = await supabase.from("hajj_form_batches").insert(newItems.map(toRow)); if (error) throw error; }
   },
   saveInvestments: async (items: Investment[]) => {
-    const rows = items.map((item) => ({ id: item.id.length === 36 ? item.id : undefined, name: item.name, ownership_percent: item.ownershipPercent, amount_invested: item.amountInvested, investment_date: item.date, notes: item.notes }));
-    const { error } = await supabase.from("investments").upsert(rows);
-    if (error) throw error;
+    const toRow = (i: Investment) => ({ name: i.name, ownership_percent: i.ownershipPercent, amount_invested: i.amountInvested, investment_date: i.date, notes: i.notes });
+    const ex = items.filter((i) => i.id.length === 36), nw = items.filter((i) => i.id.length !== 36);
+    if (ex.length) { const { error } = await supabase.from("investments").upsert(ex.map((i) => ({ id: i.id, ...toRow(i) })), { onConflict: "id" }); if (error) throw error; }
+    if (nw.length) { const { error } = await supabase.from("investments").insert(nw.map(toRow)); if (error) throw error; }
   },
   saveExpenses: async (items: OfficeExpense[]) => {
-    const rows = items.map((item) => ({ id: item.id.length === 36 ? item.id : undefined, office: item.office === "Office 2" ? "office_2" : "office_1", category: item.category.toLowerCase(), amount: item.amount, expense_date: item.date, description: item.description }));
-    const { error } = await supabase.from("office_expenses").upsert(rows);
-    if (error) throw error;
+    const toRow = (i: OfficeExpense) => ({ office: i.office === "Office 2" ? "office_2" : "office_1", category: i.category.toLowerCase(), amount: i.amount, expense_date: i.date, description: i.description });
+    const ex = items.filter((i) => i.id.length === 36), nw = items.filter((i) => i.id.length !== 36);
+    if (ex.length) { const { error } = await supabase.from("office_expenses").upsert(ex.map((i) => ({ id: i.id, ...toRow(i) })), { onConflict: "id" }); if (error) throw error; }
+    if (nw.length) { const { error } = await supabase.from("office_expenses").insert(nw.map(toRow)); if (error) throw error; }
   },
-  saveAirline: async (items: AirlineTicketBatch[]) => {
-    const rows = items.map((item) => ({ id: item.id.length === 36 ? item.id : undefined, airline_name: item.airline, route: item.route, quantity_purchased: item.quantity, cost_per_ticket: item.costPerTicket, quantity_sold: item.sold, travel_date: item.travelDate, return_date: item.returnDate }));
-    const { error } = await supabase.from("airline_inventory").upsert(rows);
-    if (error) throw error;
+  saveAirline: async (items: AirlineTicketBatch[]): Promise<AirlineTicketBatch[]> => {
+    const toRow = (i: AirlineTicketBatch) => ({ airline_name: i.airline, route: i.route, quantity_purchased: i.quantity, cost_per_ticket: i.costPerTicket, quantity_sold: i.sold, travel_date: i.travelDate, return_date: i.returnDate });
+    const ex = items.filter((i) => i.id.length === 36), nw = items.filter((i) => i.id.length !== 36);
+    const results: Row[] = [];
+    if (ex.length) { const { data, error } = await supabase.from("airline_inventory").upsert(ex.map((i) => ({ id: i.id, ...toRow(i) })), { onConflict: "id" }).select(); if (error) throw error; results.push(...(data ?? [])); }
+    if (nw.length) { const { data, error } = await supabase.from("airline_inventory").insert(nw.map(toRow)).select(); if (error) throw error; results.push(...(data ?? [])); }
+    return results.map((r) => ({ id: asString(r.id), airline: asString(r.airline_name), route: asString(r.route), quantity: asNumber(r.quantity_purchased), costPerTicket: asNumber(r.cost_per_ticket), travelDate: asString(r.travel_date), returnDate: asString(r.return_date), sold: asNumber(r.quantity_sold) }));
   },
-  saveHotels: async (items: HotelAllocation[]) => {
-    const rows = items.map((item) => ({ id: item.id.length === 36 ? item.id : undefined, hotel_name: item.hotelName, city: item.city.toLowerCase(), room_type: item.roomType, quantity_blocked: item.quantity, cost_per_night: item.costPerNight, quantity_booked: item.booked, check_in: item.checkIn, check_out: item.checkOut }));
-    const { error } = await supabase.from("hotel_inventory").upsert(rows);
-    if (error) throw error;
+  saveHotels: async (items: HotelAllocation[]): Promise<HotelAllocation[]> => {
+    const toRow = (i: HotelAllocation) => ({ hotel_name: i.hotelName, city: i.city.toLowerCase(), room_type: i.roomType, quantity_blocked: i.quantity, cost_per_night: i.costPerNight, quantity_booked: i.booked, check_in: i.checkIn, check_out: i.checkOut });
+    const ex = items.filter((i) => i.id.length === 36), nw = items.filter((i) => i.id.length !== 36);
+    const results: Row[] = [];
+    if (ex.length) { const { data, error } = await supabase.from("hotel_inventory").upsert(ex.map((i) => ({ id: i.id, ...toRow(i) })), { onConflict: "id" }).select(); if (error) throw error; results.push(...(data ?? [])); }
+    if (nw.length) { const { data, error } = await supabase.from("hotel_inventory").insert(nw.map(toRow)).select(); if (error) throw error; results.push(...(data ?? [])); }
+    return results.map((r) => ({ id: asString(r.id), hotelName: asString(r.hotel_name), city: (r.city === "madina" ? "Madina" : "Makkah") as HotelAllocation["city"], roomType: asString(r.room_type), quantity: asNumber(r.quantity_blocked), costPerNight: asNumber(r.cost_per_night), checkIn: asString(r.check_in), checkOut: asString(r.check_out), booked: asNumber(r.quantity_booked) }));
   },
 };
 
