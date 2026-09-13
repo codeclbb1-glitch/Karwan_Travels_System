@@ -4,7 +4,7 @@ import { useApp } from "../context";
 import { formatPKR } from "../data";
 
 export default function Pricing() {
-  const { hajjPackages, umrahPackages, setHajjPackages, setUmrahPackages, showToast } = useApp();
+  const { hajjPackages, umrahPackages, saveHajjPackage, saveUmrahPackage } = useApp();
 
   const allPackages = useMemo(() => {
     const hajj = hajjPackages.map((p) => {
@@ -38,9 +38,11 @@ export default function Pricing() {
 
   const updatePrice = (id: string, type: "Hajj" | "Umrah", field: "agentPrice" | "customerPrice", value: number) => {
     if (type === "Hajj") {
-      setHajjPackages(hajjPackages.map((p) => (p.id === id ? { ...p, [field === "agentPrice" ? "agentPrice" : "sellingPrice"]: value } : p)));
+      const pkg = hajjPackages.find((p) => p.id === id);
+      if (pkg) void saveHajjPackage({ ...pkg, [field === "agentPrice" ? "agentPrice" : "sellingPrice"]: value });
     } else {
-      setUmrahPackages(umrahPackages.map((p) => (p.id === id ? { ...p, [field === "agentPrice" ? "agentPrice" : "sellingPrice"]: value } : p)));
+      const pkg = umrahPackages.find((p) => p.id === id);
+      if (pkg) void saveUmrahPackage({ ...pkg, [field === "agentPrice" ? "agentPrice" : "sellingPrice"]: value });
     }
   };
 

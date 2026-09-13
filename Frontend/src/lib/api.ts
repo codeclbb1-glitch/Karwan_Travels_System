@@ -28,11 +28,11 @@ async function savePackage<T extends { id: string }>(table: string, item: T, fro
   const isNew = item.id.length !== 36;
   const row = packageToDb(item as unknown as HajjPackage);
   if (isNew) {
-    const { data, error } = await supabase.from(table).insert(row).select().single();
+    const { data, error } = await supabase.from(table).insert(row as never).select().single();
     if (error) throw error;
     return fromDb(data as Row);
   } else {
-    const { data, error } = await supabase.from(table).update(row).eq("id", item.id).select().single();
+    const { data, error } = await supabase.from(table).update(row as never).eq("id", item.id).select().single();
     if (error) throw error;
     return fromDb(data as Row);
   }
