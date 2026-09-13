@@ -19,6 +19,7 @@ export interface HajjPackage {
   id: string;
   name: string;
   mode: PackageMode;
+  airlineName: string;
   hotelCost: number;
   ticketCost: number;
   visaCost: number;
@@ -32,13 +33,12 @@ export interface HajjPackage {
   durationDays: number;
   description: string;
   inclusions: string[];
-  airlineInventoryId?: string;
-  hotelMakkahId?: string;
 }
 
 export interface UmrahPackage {
   id: string;
   name: string;
+  airlineName: string;
   airlineCost: number;
   visaCost: number;
   hotelMadinaCost: number;
@@ -52,9 +52,6 @@ export interface UmrahPackage {
   durationDays: number;
   description: string;
   inclusions: string[];
-  airlineInventoryId?: string;
-  hotelMadinaId?: string;
-  hotelMakkahId?: string;
 }
 
 export interface Booking {
@@ -74,6 +71,11 @@ export interface Booking {
   advanceAmount: number;
   bookingDate: string;
   departureDate: string;
+  arrivalDate: string;
+  airlineName: string;
+  airlineCost: number;
+  hotelMakkahId: string;
+  hotelMadinaId: string;
   isCustom?: boolean;
   customPackageName?: string;
   customPrice?: number;
@@ -105,27 +107,11 @@ export interface OfficeExpense {
   office: "Office 1" | "Office 2";
 }
 
-export interface AirlineTicketBatch {
-  id: string;
-  airline: string;
-  route: string;
-  quantity: number;
-  costPerTicket: number;
-  travelDate: string;
-  returnDate: string;
-  sold: number;
-}
-
 export interface HotelAllocation {
   id: string;
   hotelName: string;
   city: "Makkah" | "Madina";
-  roomType: string;
-  quantity: number;
-  costPerNight: number;
-  checkIn: string;
-  checkOut: string;
-  booked: number;
+  pricePerPerson: number;
 }
 
 export interface Toast {

@@ -22,7 +22,7 @@ export default function DisplayScreen() {
   const [mode, setMode] = useState<"carousel" | "grid">("carousel");
 
   const allPackages = useMemo(() => {
-    const hajj = hajjPackages.map((p) => ({
+    const hajj = hajjPackages.filter((p) => p.mode !== "Form Resale to Agent").map((p) => ({
       id: p.id,
       name: p.name,
       type: "Hajj" as const,
@@ -194,9 +194,9 @@ export default function DisplayScreen() {
       <div className="absolute bottom-0 left-0 right-0 z-10 px-8 py-3 bg-navy-900/60 backdrop-blur-sm">
         <div className="flex items-center justify-between text-white/60 text-sm">
           <span className="flex items-center gap-2">
-            <MapPin className="w-4 h-4" /> Main Office, Lahore · Karachi
+            <MapPin className="w-4 h-4" /> Deans Trade Centre, Office UG 324 &amp; 326, Saddar Cantt, Peshawar
           </span>
-          <span>For bookings & inquiries contact: 0800-KMR-HAJJ</span>
+          <span>For bookings &amp; inquiries contact: 0321-9961199</span>
         </div>
       </div>
     </div>

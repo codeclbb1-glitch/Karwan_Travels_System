@@ -11,7 +11,7 @@ import Pricing from "./pages/Pricing";
 import Finance from "./pages/Finance";
 import Investments from "./pages/Investments";
 import OfficeExpenses from "./pages/OfficeExpenses";
-import Inventory from "./pages/Inventory";
+import Hotels from "./pages/Hotels";
 import Settings from "./pages/Settings";
 import UserManagement from "./pages/UserManagement";
 import Tasks from "./pages/Tasks";
@@ -46,7 +46,7 @@ function AppRoutes() {
         <Route path="hajj" element={<Hajj />} />
         <Route path="umrah" element={<Umrah />} />
         <Route path="bookings" element={<Bookings />} />
-        <Route path="inventory" element={<Inventory />} />
+        <Route path="hotels" element={<Hotels />} />
         <Route path="settings" element={<Settings />} />
         <Route path="pricing" element={<AdminRoute><Pricing /></AdminRoute>} />
         <Route path="finance" element={<AdminRoute><Finance /></AdminRoute>} />

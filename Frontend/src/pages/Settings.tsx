@@ -84,9 +84,9 @@ export default function Settings() {
           <div className="space-y-3 text-sm">
             {[
               { label: "Agency Name", value: "Karwan Travels (KMR)" },
-              { label: "Contact Number", value: "0800-KMR-HAJJ" },
-              { label: "Office 1", value: "Gulberg III, Lahore" },
-              { label: "Office 2", value: "PECHS, Karachi" },
+              { label: "Contact Number", value: "0321-9961199" },
+              { label: "Address", value: "Deans Trade Centre, Office UG 324 & 326" },
+              { label: "City", value: "Saddar Cantt, Peshawar" },
             ].map(({ label, value }) => (
               <div key={label} className="flex items-center justify-between py-2 border-b border-navy-50 last:border-0">
                 <span className="text-navy-500">{label}</span>

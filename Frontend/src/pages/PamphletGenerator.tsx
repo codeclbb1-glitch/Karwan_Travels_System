@@ -8,13 +8,13 @@ export default function PamphletGenerator() {
   const { hajjPackages, umrahPackages } = useApp();
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [phone, setPhone] = useState("0300-0000000");
+  const [phone, setPhone] = useState("0321-9961199");
   const [email, setEmail] = useState("info@karwanmiftah.com");
-  const [address, setAddress] = useState("Main Office, Lahore");
+  const [address, setAddress] = useState("Deans Trade Centre, Office UG 324 & 326, Saddar Cantt, Peshawar");
   const [tagline, setTagline] = useState("Your Trusted Partner for Hajj & Umrah");
 
   const allPackages = [
-    ...hajjPackages.map((p) => ({ ...p, serviceType: "Hajj" as const })),
+    ...hajjPackages.filter((p) => p.mode !== "Form Resale to Agent").map((p) => ({ ...p, serviceType: "Hajj" as const })),
     ...umrahPackages.map((p) => ({ ...p, serviceType: "Umrah" as const })),
   ];
 

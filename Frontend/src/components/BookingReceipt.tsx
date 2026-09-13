@@ -1,4 +1,3 @@
-import { useRef } from "react";
 import { Printer, X } from "lucide-react";
 import { formatPKR, formatDate } from "../data";
 import type { Booking } from "../types";
@@ -13,37 +12,21 @@ function buildReceiptHTML(booking: Booking): string {
   const remaining = booking.finalPrice - booking.advanceAmount;
 
   const statusColor =
-    booking.paymentStatus === "Paid" ? "#15803d" :
+    booking.paymentStatus === "Paid"    ? "#15803d" :
     booking.paymentStatus === "Partial" ? "#b45309" : "#dc2626";
   const statusBg =
-    booking.paymentStatus === "Paid" ? "#dcfce7" :
+    booking.paymentStatus === "Paid"    ? "#dcfce7" :
     booking.paymentStatus === "Partial" ? "#fef3c7" : "#fee2e2";
 
-  const serviceRows = (() => {
-    if (isCustom && booking.customLineItems && booking.customLineItems.length > 0) {
-      return booking.customLineItems.map((item, i) => `
-        <tr>
-          <td style="padding:10px 14px;font-size:13px;color:#64748b;border-bottom:1px solid #f1f5f9;">${i + 1}</td>
-          <td style="padding:10px 14px;font-size:13px;color:#1e293b;border-bottom:1px solid #f1f5f9;">${item.label}</td>
-          <td style="padding:10px 14px;font-size:13px;font-weight:600;color:#1e293b;text-align:right;border-bottom:1px solid #f1f5f9;">${formatPKR(item.price)}</td>
-        </tr>`).join("");
-    }
-    if (booking.selectedInclusions.length > 0) {
-      return booking.selectedInclusions.map((inc, i) => `
-        <tr>
-          <td style="padding:10px 14px;font-size:13px;color:#64748b;border-bottom:1px solid #f1f5f9;">${i + 1}</td>
-          <td style="padding:10px 14px;font-size:13px;color:#1e293b;border-bottom:1px solid #f1f5f9;">${inc}</td>
-          <td style="padding:10px 14px;font-size:13px;color:#94a3b8;text-align:right;font-style:italic;border-bottom:1px solid #f1f5f9;">Included</td>
-        </tr>`).join("");
-    }
-    return `<tr><td colspan="3" style="padding:14px;text-align:center;color:#94a3b8;font-size:13px;">No services listed</td></tr>`;
-  })();
+  const inclusions = isCustom
+    ? (booking.customLineItems ?? []).map((i) => i.label)
+    : booking.selectedInclusions;
 
-  const remainingRow = remaining > 0 ? `
-    <tr>
-      <td style="padding:8px 0;font-size:13px;color:rgba(255,255,255,0.7);">Balance Remaining</td>
-      <td style="padding:8px 0;font-size:13px;font-weight:600;color:#fca5a5;text-align:right;">${formatPKR(remaining)}</td>
-    </tr>` : "";
+  const inclusionChips = inclusions.length > 0
+    ? inclusions.map((inc) =>
+        `<span style="display:inline-block;padding:3px 10px;margin:3px 3px 0 0;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:20px;font-size:11px;color:#15803d;font-weight:600;">${inc}</span>`
+      ).join("")
+    : `<span style="font-size:12px;color:#94a3b8;font-style:italic;">No inclusions listed</span>`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -52,171 +35,158 @@ function buildReceiptHTML(booking: Booking): string {
 <title>Receipt — ${booking.customerName}</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:'Segoe UI',Arial,sans-serif; background:#f8fafc; color:#1e293b; }
-  .page { max-width:740px; margin:32px auto; background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 4px 32px rgba(0,0,0,0.10); }
-  .top-bar { background:#14532d; height:6px; }
-  .inner { padding:40px 44px; }
-  .header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:32px; padding-bottom:28px; border-bottom:1px solid #e2e8f0; }
-  .brand { display:flex; align-items:center; gap:16px; }
-  .logo { width:56px; height:56px; background:#14532d; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:900; color:#fbbf24; flex-shrink:0; }
-  .brand-text h1 { font-size:20px; font-weight:800; color:#14532d; letter-spacing:-0.3px; }
-  .brand-text p { font-size:11px; color:#64748b; margin-top:2px; }
-  .brand-text .tagline { font-size:11px; color:#94a3b8; margin-top:4px; }
-  .receipt-meta { text-align:right; }
-  .receipt-meta h2 { font-size:22px; font-weight:800; color:#14532d; letter-spacing:1px; text-transform:uppercase; }
-  .receipt-meta .ref { font-size:11px; color:#94a3b8; margin-top:6px; }
-  .receipt-meta .date { font-size:12px; color:#64748b; margin-top:3px; }
-  .status-pill { display:inline-block; margin-top:10px; padding:4px 14px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; background:${statusBg}; color:${statusColor}; }
-  .two-col { display:grid; grid-template-columns:1fr 1fr; gap:28px; margin-bottom:28px; }
-  .section-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:#94a3b8; margin-bottom:12px; padding-bottom:6px; border-bottom:1px solid #f1f5f9; }
-  .field { margin-bottom:10px; }
-  .field-label { font-size:10px; color:#94a3b8; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:2px; }
-  .field-value { font-size:13px; font-weight:600; color:#1e293b; }
+  body { font-family:'Segoe UI',Arial,sans-serif; background:#f1f5f9; color:#1e293b; font-size:12px; }
+  .page { max-width:680px; margin:20px auto; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 20px rgba(0,0,0,0.08); }
+  /* Header */
+  .header { background:#14532d; padding:18px 24px; display:flex; justify-content:space-between; align-items:center; }
+  .brand { display:flex; align-items:center; gap:12px; }
+  .logo-wrap { width:44px; height:44px; background:#fff; border-radius:8px; display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0; }
+  .logo-wrap img { width:32px; height:32px; object-fit:contain; }
+  .brand-name { color:#fff; font-size:16px; font-weight:800; letter-spacing:-0.3px; line-height:1.2; }
+  .brand-sub { color:#86efac; font-size:10px; font-weight:600; letter-spacing:2px; margin-top:2px; }
+  .receipt-label { text-align:right; }
+  .receipt-label h2 { color:#fbbf24; font-size:18px; font-weight:800; letter-spacing:1px; text-transform:uppercase; }
+  .receipt-label .ref { color:rgba(255,255,255,0.6); font-size:10px; margin-top:4px; }
+  .receipt-label .ref strong { color:#fff; }
+  /* Body */
+  .body { padding:20px 24px; }
+  /* Status bar */
+  .status-bar { display:flex; align-items:center; justify-content:space-between; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; margin-bottom:16px; }
+  .status-bar .issued { font-size:11px; color:#64748b; }
+  .status-bar .issued strong { color:#1e293b; }
+  .status-pill { padding:4px 12px; border-radius:20px; font-size:10px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; background:${statusBg}; color:${statusColor}; }
+  /* Two col */
+  .two-col { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+  .section { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 14px; }
+  .section-title { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:#94a3b8; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid #e2e8f0; }
+  .field { margin-bottom:7px; }
+  .field:last-child { margin-bottom:0; }
+  .field-label { font-size:9px; color:#94a3b8; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:1px; }
+  .field-value { font-size:12px; font-weight:600; color:#1e293b; }
   .field-value.muted { color:#64748b; font-weight:400; }
-  .services-section { margin-bottom:28px; }
-  .services-table { width:100%; border-collapse:collapse; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; }
-  .services-table thead tr { background:#f8fafc; }
-  .services-table thead th { padding:10px 14px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:#64748b; text-align:left; border-bottom:1px solid #e2e8f0; }
-  .services-table thead th:last-child { text-align:right; }
-  .payment-box { background:#14532d; border-radius:14px; padding:24px 28px; }
-  .payment-box table { width:100%; border-collapse:collapse; }
-  .payment-box td { padding:7px 0; font-size:13px; color:rgba(255,255,255,0.75); vertical-align:middle; }
-  .payment-box td:last-child { text-align:right; font-weight:600; color:#fff; }
-  .payment-divider { border:none; border-top:1px solid rgba(255,255,255,0.15); margin:12px 0; }
-  .payment-total-label { font-size:15px; font-weight:700; color:#fff; }
-  .payment-total-value { font-size:24px; font-weight:800; color:#fbbf24; }
-  .footer { margin-top:32px; padding-top:20px; border-top:1px solid #f1f5f9; text-align:center; }
-  .footer p { font-size:11px; color:#94a3b8; margin-bottom:4px; }
-  .footer .thank-you { font-size:13px; font-weight:600; color:#14532d; margin-bottom:6px; }
-  .bottom-bar { background:#14532d; height:4px; margin-top:32px; }
+  /* Inclusions */
+  .inclusions-section { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 14px; margin-bottom:16px; }
+  /* Payment */
+  .payment { background:#14532d; border-radius:8px; padding:14px 18px; }
+  .payment-title { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:rgba(255,255,255,0.5); margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.1); }
+  .pay-row { display:flex; justify-content:space-between; align-items:center; padding:4px 0; }
+  .pay-label { font-size:11px; color:rgba(255,255,255,0.65); }
+  .pay-value { font-size:11px; font-weight:600; color:#fff; }
+  .pay-divider { border:none; border-top:1px solid rgba(255,255,255,0.12); margin:8px 0; }
+  .pay-total-label { font-size:13px; font-weight:700; color:#fff; }
+  .pay-total-value { font-size:20px; font-weight:800; color:#fbbf24; }
+  /* Footer */
+  .footer { text-align:center; padding:12px 24px 16px; border-top:1px solid #f1f5f9; }
+  .footer .thank { font-size:11px; font-weight:600; color:#14532d; margin-bottom:3px; }
+  .footer .note { font-size:10px; color:#94a3b8; }
   @media print {
     body { background:#fff; }
-    .page { box-shadow:none; margin:0; border-radius:0; }
-    .top-bar, .bottom-bar { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
-    .payment-box { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+    .page { box-shadow:none; margin:0; border-radius:0; max-width:100%; }
+    .header, .payment { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
     .status-pill { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+    .inclusions-section span { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
   }
 </style>
 </head>
 <body>
 <div class="page">
-  <div class="top-bar"></div>
-  <div class="inner">
 
-    <!-- Header -->
-    <div class="header">
-      <div class="brand">
-        <div class="logo">K</div>
-        <div class="brand-text">
-          <h1>Karwan Travels</h1>
-          <p style="font-weight:700;letter-spacing:2px;color:#b45309;">KMR</p>
-          <p class="tagline">Hajj &amp; Umrah Management</p>
-          <p class="tagline">Gulberg III, Lahore &nbsp;|&nbsp; PECHS, Karachi</p>
-        </div>
+  <!-- Header -->
+  <div class="header">
+    <div class="brand">
+      <div class="logo-wrap">
+        <img src="/logo.jpeg" alt="KMR Logo" />
       </div>
-      <div class="receipt-meta">
-        <h2>Booking Receipt</h2>
-        <p class="ref">Ref No: <strong style="color:#1e293b;">${booking.id.slice(-10).toUpperCase()}</strong></p>
-        <p class="date">Issued: ${formatDate(booking.bookingDate)}</p>
-        <div class="status-pill">${booking.paymentStatus}</div>
+      <div>
+        <div class="brand-name">Karwan-e-Miftah</div>
+        <div class="brand-sub">KMR · HAJJ &amp; UMRAH</div>
       </div>
     </div>
+    <div class="receipt-label">
+      <h2>Booking Receipt</h2>
+      <div class="ref">Ref: <strong>${booking.id.slice(-10).toUpperCase()}</strong></div>
+    </div>
+  </div>
 
-    <!-- Customer & Booking Info -->
+  <div class="body">
+
+    <!-- Status bar -->
+    <div class="status-bar">
+      <div class="issued">Issued: <strong>${formatDate(booking.bookingDate)}</strong> &nbsp;·&nbsp; ${booking.serviceType} &nbsp;·&nbsp; ${isCustom ? "Custom Booking" : "Standard Package"}</div>
+      <div class="status-pill">${booking.paymentStatus}</div>
+    </div>
+
+    <!-- Customer + Booking Info -->
     <div class="two-col">
-      <div>
-        <div class="section-label">Customer Information</div>
+      <div class="section">
+        <div class="section-title">Customer</div>
         <div class="field"><div class="field-label">Full Name</div><div class="field-value">${booking.customerName}</div></div>
         <div class="field"><div class="field-label">CNIC / Passport</div><div class="field-value">${booking.cnicPassport}</div></div>
         <div class="field"><div class="field-label">Phone</div><div class="field-value">${booking.phone}</div></div>
         <div class="field"><div class="field-label">Address</div><div class="field-value muted">${booking.address || "—"}</div></div>
-        ${booking.nextOfKin ? `<div class="field"><div class="field-label">Next of Kin</div><div class="field-value muted">${booking.nextOfKin}${booking.nextOfKinPhone ? " &nbsp;·&nbsp; " + booking.nextOfKinPhone : ""}</div></div>` : ""}
+        ${booking.nextOfKin ? `<div class="field"><div class="field-label">Next of Kin</div><div class="field-value muted">${booking.nextOfKin}${booking.nextOfKinPhone ? " · " + booking.nextOfKinPhone : ""}</div></div>` : ""}
       </div>
-      <div>
-        <div class="section-label">Booking Information</div>
-        <div class="field"><div class="field-label">Service Type</div><div class="field-value">${booking.serviceType}</div></div>
-        <div class="field"><div class="field-label">Package / Plan</div><div class="field-value">${booking.packageName}</div></div>
-        <div class="field"><div class="field-label">Booking Type</div><div class="field-value">${isCustom ? "Custom Booking" : "Standard Package"}</div></div>
+      <div class="section">
+        <div class="section-title">Trip Details</div>
+        <div class="field"><div class="field-label">Package</div><div class="field-value">${booking.packageName}</div></div>
+        <div class="field"><div class="field-label">Departure</div><div class="field-value">${booking.departureDate ? formatDate(booking.departureDate) : "—"}</div></div>
+        <div class="field"><div class="field-label">Arrival</div><div class="field-value">${booking.arrivalDate ? formatDate(booking.arrivalDate) : "—"}</div></div>
+        ${booking.airlineName ? `<div class="field"><div class="field-label">Airline</div><div class="field-value">${booking.airlineName}</div></div>` : ""}
         <div class="field"><div class="field-label">Booking Date</div><div class="field-value">${formatDate(booking.bookingDate)}</div></div>
-        <div class="field"><div class="field-label">Departure Date</div><div class="field-value">${booking.departureDate ? formatDate(booking.departureDate) : "—"}</div></div>
       </div>
     </div>
 
-    <!-- Services -->
-    <div class="services-section">
-      <div class="section-label">Services Included</div>
-      <table class="services-table">
-        <thead>
-          <tr>
-            <th style="width:40px;">#</th>
-            <th>Service / Description</th>
-            <th style="text-align:right;">Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${serviceRows}
-        </tbody>
-      </table>
+    <!-- Inclusions -->
+    <div class="inclusions-section">
+      <div class="section-title">Services Included</div>
+      <div>${inclusionChips}</div>
     </div>
 
-    <!-- Payment Summary -->
-    <div class="payment-box">
-      <div class="section-label" style="color:rgba(255,255,255,0.5);border-bottom-color:rgba(255,255,255,0.1);">Payment Summary</div>
-      <table>
-        <tr>
-          <td>Total Package Price</td>
-          <td>${formatPKR(booking.finalPrice)}</td>
-        </tr>
-        <tr>
-          <td>Amount Paid</td>
-          <td style="color:#86efac;">${formatPKR(booking.advanceAmount)}</td>
-        </tr>
-        ${remaining > 0 ? `<tr><td>Balance Remaining</td><td style="color:#fca5a5;">${formatPKR(remaining)}</td></tr>` : ""}
-      </table>
-      <hr class="payment-divider"/>
-      <table>
-        <tr>
-          <td class="payment-total-label">Grand Total</td>
-          <td class="payment-total-value">${formatPKR(booking.finalPrice)}</td>
-        </tr>
-      </table>
-    </div>
-
-    <!-- Footer -->
-    <div class="footer">
-      <p class="thank-you">Thank you for choosing Karwan Travels (KMR)</p>
-      <p>0800-KMR-HAJJ &nbsp;|&nbsp; Gulberg III, Lahore &nbsp;|&nbsp; PECHS, Karachi</p>
-      <p style="margin-top:8px;font-size:10px;">This is a computer-generated receipt and does not require a physical signature.</p>
+    <!-- Payment -->
+    <div class="payment">
+      <div class="payment-title">Payment Summary</div>
+      <div class="pay-row"><span class="pay-label">Package Price</span><span class="pay-value">${formatPKR(booking.finalPrice)}</span></div>
+      <div class="pay-row"><span class="pay-label">Amount Paid</span><span class="pay-value" style="color:#86efac;">${formatPKR(booking.advanceAmount)}</span></div>
+      ${remaining > 0 ? `<div class="pay-row"><span class="pay-label">Balance Due</span><span class="pay-value" style="color:#fca5a5;">${formatPKR(remaining)}</span></div>` : ""}
+      <hr class="pay-divider"/>
+      <div class="pay-row">
+        <span class="pay-total-label">Total</span>
+        <span class="pay-total-value">${formatPKR(booking.finalPrice)}</span>
+      </div>
     </div>
 
   </div>
-  <div class="bottom-bar"></div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="thank">Thank you for choosing Karwan-e-Miftah (KMR)</div>
+    <div class="note">This is a computer-generated receipt · Deans Trade Centre, Office UG 324&amp;326, Saddar Cantt, Peshawar &nbsp;|&nbsp; 0321-9961199</div>
+  </div>
+
 </div>
 </body>
 </html>`;
 }
 
 export default function BookingReceipt({ booking, onClose }: Props) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const html = buildReceiptHTML(booking);
 
   const handlePrint = () => {
-    const win = window.open("", "_blank", "width=820,height=960");
+    const win = window.open("", "_blank", "width=760,height=900");
     if (!win) return;
     win.document.write(html);
     win.document.close();
     win.focus();
-    setTimeout(() => { win.print(); }, 500);
+    setTimeout(() => { win.print(); }, 400);
   };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className="modal-panel w-full max-w-3xl flex flex-col"
+        className="modal-panel w-full max-w-2xl flex flex-col"
         style={{ maxHeight: "92vh" }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Toolbar */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-navy-100 rounded-t-2xl bg-white flex-shrink-0">
           <h3 className="text-lg font-display font-bold text-navy-900">Booking Receipt</h3>
           <div className="flex items-center gap-2">
@@ -228,13 +198,10 @@ export default function BookingReceipt({ booking, onClose }: Props) {
             </button>
           </div>
         </div>
-
-        {/* iframe preview — renders the exact same HTML as print */}
         <iframe
-          ref={iframeRef}
           srcDoc={html}
           className="flex-1 w-full rounded-b-2xl"
-          style={{ minHeight: "600px", border: "none" }}
+          style={{ minHeight: "560px", border: "none" }}
           title="Receipt Preview"
         />
       </div>

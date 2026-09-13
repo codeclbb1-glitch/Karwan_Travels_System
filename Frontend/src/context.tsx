@@ -7,7 +7,6 @@ import {
   type ReactNode,
 } from "react";
 import type {
-  AirlineTicketBatch,
   Booking,
   HajjFormBatch,
   HajjPackage,
@@ -45,10 +44,9 @@ interface AppContextValue {
   setInvestments: (i: Investment[]) => Promise<void>;
   officeExpenses: OfficeExpense[];
   setOfficeExpenses: (e: OfficeExpense[]) => Promise<void>;
-  airlineTickets: AirlineTicketBatch[];
-  setAirlineTickets: (a: AirlineTicketBatch[]) => Promise<void>;
   hotelAllocations: HotelAllocation[];
   setHotelAllocations: (h: HotelAllocation[]) => Promise<void>;
+  deleteHotel: (id: string) => Promise<void>;
   createBooking: (booking: Booking) => Promise<void>;
   tasks: Task[];
   loadTasks: () => Promise<void>;
@@ -70,7 +68,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [bookings, setBookingsState] = useState<Booking[]>([]);
   const [investments, setInvestmentsState] = useState<Investment[]>([]);
   const [officeExpenses, setOfficeExpensesState] = useState<OfficeExpense[]>([]);
-  const [airlineTickets, setAirlineTicketsState] = useState<AirlineTicketBatch[]>([]);
   const [hotelAllocations, setHotelAllocationsState] = useState<HotelAllocation[]>([]);
   const [tasks, setTasksState] = useState<Task[]>([]);
 
@@ -82,7 +79,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setBookingsState(loaded.bookings);
     setInvestmentsState(loaded.investments);
     setOfficeExpensesState(loaded.officeExpenses);
-    setAirlineTicketsState(loaded.airlineTickets);
     setHotelAllocationsState(loaded.hotelAllocations);
     await tasksApi.load().then(setTasksState).catch(() => {});
   }, []);
@@ -114,7 +110,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setBookingsState([]);
         setInvestmentsState([]);
         setOfficeExpensesState([]);
-        setAirlineTicketsState([]);
         setHotelAllocationsState([]);
         setTasksState([]);
         return;
@@ -151,12 +146,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setBookingsState([]);
     setInvestmentsState([]);
     setOfficeExpensesState([]);
-    setAirlineTicketsState([]);
     setHotelAllocationsState([]);
     setTasksState([]);
   }, []);
 
-  // All setters: optimistic update → await DB → rollback + throw on failure
   const setHajjFormBatches = useCallback(async (items: HajjFormBatch[]) => {
     const prev = await new Promise<HajjFormBatch[]>((res) => { setHajjFormBatchesState((s) => { res(s); return items; }); });
     try { await dataApi.saveForms(items); }
@@ -203,16 +196,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try { await dataApi.saveExpenses(items); }
     catch (e) { setOfficeExpensesState(prev); throw e; }
   }, []);
-  const setAirlineTickets = useCallback(async (items: AirlineTicketBatch[]) => {
-    const prev = await new Promise<AirlineTicketBatch[]>((res) => { setAirlineTicketsState((s) => { res(s); return items; }); });
-    try { const saved = await dataApi.saveAirline(items); setAirlineTicketsState(saved); }
-    catch (e) { setAirlineTicketsState(prev); throw e; }
-  }, []);
   const setHotelAllocations = useCallback(async (items: HotelAllocation[]) => {
     const prev = await new Promise<HotelAllocation[]>((res) => { setHotelAllocationsState((s) => { res(s); return items; }); });
     try { const saved = await dataApi.saveHotels(items); setHotelAllocationsState(saved); }
     catch (e) { setHotelAllocationsState(prev); throw e; }
   }, []);
+  const deleteHotel = useCallback(async (id: string) => {
+    const prev = hotelAllocations;
+    setHotelAllocationsState((s) => s.filter((h) => h.id !== id));
+    try { await dataApi.deleteHotel(id); }
+    catch (e) { setHotelAllocationsState(prev); throw e; }
+  }, [hotelAllocations]);
   const createBooking = useCallback(async (booking: Booking) => {
     await dataApi.createBooking(booking);
     if (role) await loadData(role);
@@ -273,10 +267,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setInvestments,
         officeExpenses,
         setOfficeExpenses,
-        airlineTickets,
-        setAirlineTickets,
         hotelAllocations,
         setHotelAllocations,
+        deleteHotel,
         createBooking,
         tasks,
         loadTasks,

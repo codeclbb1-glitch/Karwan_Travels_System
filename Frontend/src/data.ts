@@ -3,7 +3,6 @@ import type {
   HajjFormBatch,
   HajjPackage,
   HotelAllocation,
-  AirlineTicketBatch,
   Investment,
   LedgerEntry,
   OfficeExpense,
@@ -53,6 +52,7 @@ export const initialHajjPackages: HajjPackage[] = [
     id: "hp1",
     name: "Hajj Premium 40 Days",
     mode: "Company-Organized",
+    airlineName: "Emirates",
     hotelCost: 180000,
     ticketCost: 220000,
     visaCost: 45000,
@@ -71,6 +71,7 @@ export const initialHajjPackages: HajjPackage[] = [
     id: "hp2",
     name: "Hajj Standard 30 Days",
     mode: "Company-Organized",
+    airlineName: "PIA",
     hotelCost: 130000,
     ticketCost: 200000,
     visaCost: 45000,
@@ -89,6 +90,7 @@ export const initialHajjPackages: HajjPackage[] = [
     id: "hp3",
     name: "Hajj Economy 25 Days",
     mode: "Company-Organized",
+    airlineName: "PIA",
     hotelCost: 100000,
     ticketCost: 180000,
     visaCost: 45000,
@@ -107,6 +109,7 @@ export const initialHajjPackages: HajjPackage[] = [
     id: "hp4",
     name: "Hajj Deluxe 45 Days",
     mode: "Company-Organized",
+    airlineName: "Saudi Airlines",
     hotelCost: 250000,
     ticketCost: 280000,
     visaCost: 45000,
@@ -125,6 +128,7 @@ export const initialHajjPackages: HajjPackage[] = [
     id: "hp5",
     name: "Hajj Agent Resale Pack",
     mode: "Form Resale to Agent",
+    airlineName: "",
     hotelCost: 120000,
     ticketCost: 190000,
     visaCost: 45000,
@@ -145,6 +149,7 @@ export const initialUmrahPackages: UmrahPackage[] = [
   {
     id: "up1",
     name: "Umrah Economy 10 Days",
+    airlineName: "PIA",
     airlineCost: 110000,
     visaCost: 25000,
     hotelMadinaCost: 30000,
@@ -162,6 +167,7 @@ export const initialUmrahPackages: UmrahPackage[] = [
   {
     id: "up2",
     name: "Umrah Deluxe 15 Days",
+    airlineName: "Emirates",
     airlineCost: 140000,
     visaCost: 25000,
     hotelMadinaCost: 55000,
@@ -179,6 +185,7 @@ export const initialUmrahPackages: UmrahPackage[] = [
   {
     id: "up3",
     name: "Umrah Premium 20 Days",
+    airlineName: "Emirates",
     airlineCost: 160000,
     visaCost: 25000,
     hotelMadinaCost: 80000,
@@ -196,6 +203,7 @@ export const initialUmrahPackages: UmrahPackage[] = [
   {
     id: "up4",
     name: "Umrah Express 7 Days",
+    airlineName: "PIA",
     airlineCost: 95000,
     visaCost: 25000,
     hotelMadinaCost: 20000,
@@ -213,6 +221,7 @@ export const initialUmrahPackages: UmrahPackage[] = [
   {
     id: "up5",
     name: "Umrah Family 12 Days",
+    airlineName: "Saudi Airlines",
     airlineCost: 125000,
     visaCost: 25000,
     hotelMadinaCost: 45000,
@@ -487,17 +496,10 @@ export const initialOfficeExpenses: OfficeExpense[] = [
   { id: "oe16", category: "Food", amount: 10000, date: "2025-09-05", description: "Staff lunch", office: "Office 1" },
 ];
 
-export const initialAirlineTickets: AirlineTicketBatch[] = [
-  { id: "at1", airline: "Saudi Airlines", route: "Lahore → Jeddah", quantity: 50, costPerTicket: 110000, travelDate: "2025-05-25", returnDate: "2025-07-05", sold: 18 },
-  { id: "at2", airline: "Emirates", route: "Karachi → Jeddah", quantity: 30, costPerTicket: 125000, travelDate: "2025-05-28", returnDate: "2025-06-28", sold: 5 },
-  { id: "at3", airline: "Airblue", route: "Islamabad → Madinah", quantity: 40, costPerTicket: 95000, travelDate: "2025-04-01", returnDate: "2025-04-10", sold: 12 },
-  { id: "at4", airline: "PIA", route: "Lahore → Jeddah", quantity: 60, costPerTicket: 100000, travelDate: "2025-06-10", returnDate: "2025-07-15", sold: 8 },
-];
-
 export const initialHotelAllocations: HotelAllocation[] = [
-  { id: "ha1", hotelName: "Makkah Hilton", city: "Makkah", roomType: "Triple", quantity: 20, costPerNight: 4500, checkIn: "2025-05-25", checkOut: "2025-07-05", booked: 8 },
-  { id: "ha2", hotelName: "Madinah Oberoi", city: "Madina", roomType: "Double", quantity: 15, costPerNight: 5200, checkIn: "2025-05-26", checkOut: "2025-07-04", booked: 5 },
-  { id: "ha3", hotelName: "Swissotel Makkah", city: "Makkah", roomType: "Quad", quantity: 25, costPerNight: 3800, checkIn: "2025-06-01", checkOut: "2025-07-01", booked: 10 },
-  { id: "ha4", hotelName: "Madinah Millennium", city: "Madina", roomType: "Triple", quantity: 18, costPerNight: 4100, checkIn: "2025-05-27", checkOut: "2025-07-03", booked: 4 },
-  { id: "ha5", hotelName: "Makkah Clock Tower", city: "Makkah", roomType: "Double", quantity: 12, costPerNight: 6500, checkIn: "2025-04-01", checkOut: "2025-04-15", booked: 6 },
+  { id: "ha1", hotelName: "Makkah Hilton", city: "Makkah", pricePerPerson: 45000 },
+  { id: "ha2", hotelName: "Madinah Oberoi", city: "Madina", pricePerPerson: 38000 },
+  { id: "ha3", hotelName: "Swissotel Makkah", city: "Makkah", pricePerPerson: 52000 },
+  { id: "ha4", hotelName: "Madinah Millennium", city: "Madina", pricePerPerson: 35000 },
+  { id: "ha5", hotelName: "Makkah Clock Tower", city: "Makkah", pricePerPerson: 65000 },
 ];

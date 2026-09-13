@@ -18,11 +18,14 @@ const emptyBooking: Omit<BookingType, "id"> = {
   selectedInclusions: [], finalPrice: 0,
   paymentStatus: "Unpaid", advanceAmount: 0,
   bookingDate: new Date().toISOString().slice(0, 10),
-  departureDate: "", isCustom: false, customPackageName: "", customPrice: 0, customLineItems: [],
+  departureDate: "", arrivalDate: "",
+  airlineName: "", airlineCost: 0,
+  hotelMakkahId: "", hotelMadinaId: "",
+  isCustom: false, customPackageName: "", customPrice: 0, customLineItems: [],
 };
 
 export default function Bookings() {
-  const { role, bookings, hajjPackages, umrahPackages, createBooking, showToast } = useApp();
+  const { role, bookings, hajjPackages, umrahPackages, hotelAllocations, createBooking, showToast } = useApp();
   const isAdmin = role === "admin";
 
   const [modal, setModal] = useState(false);
@@ -40,7 +43,7 @@ export default function Bookings() {
   const [filterDateTo, setFilterDateTo] = useState("");
   const [formErrors, setFormErrors] = useState<FieldErrors>({});
 
-  const availablePackages = form.serviceType === "Hajj" ? hajjPackages : umrahPackages;
+  const availablePackages = (form.serviceType === "Hajj" ? hajjPackages : umrahPackages).filter((p) => !("mode" in p && p.mode === "Form Resale to Agent"));
 
   const selectedPackage = useMemo(() => {
     if (!form.packageId || bookingMode === "custom") return null;
@@ -50,9 +53,9 @@ export default function Bookings() {
   const inclusionCostMap = useMemo((): Record<string, number> => {
     if (!selectedPackage) return {};
     if ("hotelCost" in selectedPackage) {
-      return { "Hotel": selectedPackage.hotelCost, "Air Ticket": selectedPackage.ticketCost, "Visa": selectedPackage.visaCost, "Transport": selectedPackage.transportCost, "Food": selectedPackage.foodCost };
+      return { "Hotel": selectedPackage.hotelCost, "Air Ticket": selectedPackage.ticketCost, "Visa": selectedPackage.visaCost, "Transport": selectedPackage.transportCost, "Food": selectedPackage.foodCost, "Other": selectedPackage.otherCost };
     }
-    return { "Airline": selectedPackage.airlineCost, "Visa": selectedPackage.visaCost, "Hotel Madina": selectedPackage.hotelMadinaCost, "Hotel Makkah": selectedPackage.hotelMakkahCost, "Transport": selectedPackage.transportCost, "Food": selectedPackage.foodCost };
+    return { "Airline": selectedPackage.airlineCost, "Visa": selectedPackage.visaCost, "Hotel Madina": selectedPackage.hotelMadinaCost, "Hotel Makkah": selectedPackage.hotelMakkahCost, "Transport": selectedPackage.transportCost, "Food": selectedPackage.foodCost, "Other": selectedPackage.otherCost };
   }, [selectedPackage]);
 
   const customTotal = useMemo(() => lineItems.reduce((s, i) => s + i.price, 0), [lineItems]);
@@ -76,19 +79,27 @@ export default function Bookings() {
   };
 
   const handleServiceTypeChange = (type: ServiceType) => {
-    setForm({ ...form, serviceType: type, packageId: "", packageName: "", selectedInclusions: [] });
+    setForm({ ...form, serviceType: type, packageId: "", packageName: "", selectedInclusions: [], hotelMakkahId: "", hotelMadinaId: "" });
   };
 
   const switchMode = (mode: BookingMode) => {
     setBookingMode(mode);
     setLineItems([]);
-    setForm((f) => ({ ...f, packageId: "", packageName: "", selectedInclusions: [], isCustom: mode === "custom", customPackageName: "", customPrice: 0, customLineItems: [] }));
+    setForm((f) => ({ ...f, packageId: "", packageName: "", selectedInclusions: [], isCustom: mode === "custom", customPackageName: "", customPrice: 0, customLineItems: [], hotelMakkahId: "", hotelMadinaId: "" }));
     setFormErrors({});
   };
 
   const handlePackageSelect = (pkgId: string) => {
     const pkg = availablePackages.find((p) => p.id === pkgId);
-    if (pkg) setForm({ ...form, packageId: pkgId, packageName: pkg.name, selectedInclusions: [...pkg.inclusions] });
+    if (!pkg) return;
+    let inclusions: string[];
+    if ("hotelCost" in pkg) {
+      const map: [string, number][] = [["Air Ticket", pkg.ticketCost], ["Visa", pkg.visaCost], ["Hotel", pkg.hotelCost], ["Transport", pkg.transportCost], ["Food", pkg.foodCost], ["Other", pkg.otherCost]];
+      inclusions = map.filter(([, v]) => v > 0).map(([k]) => k);
+    } else {
+      inclusions = [...pkg.inclusions];
+    }
+    setForm({ ...form, packageId: pkgId, packageName: pkg.name, selectedInclusions: inclusions });
   };
 
   const toggleInclusion = (inc: string) => {
@@ -206,6 +217,7 @@ export default function Bookings() {
                 {isAdmin && <th className="text-right px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Advance</th>}
                 <th className="text-center px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Status</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Departure</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Arrival</th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Receipt</th>
               </tr>
             </thead>
@@ -229,6 +241,7 @@ export default function Bookings() {
                     <span className={`badge ${b.paymentStatus === "Paid" ? "badge-green" : b.paymentStatus === "Partial" ? "badge-gold" : "badge-red"}`}>{b.paymentStatus}</span>
                   </td>
                   <td className="px-4 py-3 text-sm text-navy-500">{formatDate(b.departureDate)}</td>
+                  <td className="px-4 py-3 text-sm text-navy-500">{b.arrivalDate ? formatDate(b.arrivalDate) : "—"}</td>
                   <td className="px-4 py-3 text-center">
                     <button onClick={() => setReceiptBooking(b)} className="btn-ghost p-2" title="View Receipt">
                       <Receipt className="w-4 h-4 text-navy-500" />
@@ -328,14 +341,21 @@ export default function Bookings() {
                 <label className="label">Select Package</label>
                 <FieldError error={formErrors.packageId} />
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-1">
-                  {availablePackages.map((p) => (
-                    <button key={p.id} onClick={() => handlePackageSelect(p.id)}
-                      className={`text-left p-4 rounded-xl border-2 transition-all ${form.packageId === p.id ? "border-primary-500 bg-primary-50" : "border-navy-100 hover:border-navy-200"}`}>
-                      <p className="font-medium text-navy-800 text-sm">{p.name}</p>
-                      <p className="text-xs text-navy-400 mt-1">{p.durationDays} days</p>
-                      <p className="text-sm font-bold text-primary-700 mt-1">{formatPKR(p.sellingPrice)}</p>
-                    </button>
-                  ))}
+                  {availablePackages.map((p) => {
+                    const noForms = "formsRemaining" in p && p.formsRemaining === 0;
+                    return (
+                      <button key={p.id} onClick={() => !noForms && handlePackageSelect(p.id)} disabled={noForms}
+                        className={`text-left p-4 rounded-xl border-2 transition-all ${
+                          noForms ? "border-navy-100 bg-navy-50 opacity-50 cursor-not-allowed" :
+                          form.packageId === p.id ? "border-primary-500 bg-primary-50" : "border-navy-100 hover:border-navy-200"
+                        }`}>
+                        <p className="font-medium text-navy-800 text-sm">{p.name}</p>
+                        <p className="text-xs text-navy-400 mt-1">{p.durationDays} days</p>
+                        <p className="text-sm font-bold text-primary-700 mt-1">{formatPKR(p.sellingPrice)}</p>
+                        {noForms && <p className="text-xs text-red-400 mt-1 font-medium">No forms left</p>}
+                      </button>
+                    );
+                  })}
                   {availablePackages.length === 0 && <p className="text-sm text-navy-400 col-span-3 py-2">No {form.serviceType} packages available.</p>}
                 </div>
               </div>
@@ -414,15 +434,22 @@ export default function Bookings() {
           )}
 
           {/* Payment */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="label">Departure Date</label>
               <input type="date" className={inputClass("input", formErrors.departureDate)} value={form.departureDate} onChange={(e) => setForm({ ...form, departureDate: e.target.value })} />
               <FieldError error={formErrors.departureDate} />
             </div>
             <div>
+              <label className="label">Arrival Date <span className="text-navy-400 font-normal">(optional)</span></label>
+              <input type="date" className="input" value={form.arrivalDate} onChange={(e) => setForm({ ...form, arrivalDate: e.target.value })} />
+            </div>
+            <div>
               <label className="label">Payment Status</label>
-              <select className="input" value={form.paymentStatus} onChange={(e) => setForm({ ...form, paymentStatus: e.target.value as BookingType["paymentStatus"] })}>
+              <select className="input" value={form.paymentStatus} onChange={(e) => {
+              const status = e.target.value as BookingType["paymentStatus"];
+              setForm({ ...form, paymentStatus: status, advanceAmount: status === "Paid" ? livePrice : status === "Unpaid" ? 0 : form.advanceAmount });
+            }}>
                 <option value="Paid">Paid (Full)</option>
                 <option value="Partial">Partial</option>
                 <option value="Unpaid">Unpaid</option>
@@ -430,7 +457,7 @@ export default function Bookings() {
             </div>
             <div>
               <label className="label">Advance Amount {form.paymentStatus === "Unpaid" && <span className="text-navy-400 font-normal">(0 for unpaid)</span>}</label>
-              <input type="number" min="0" className={inputClass("input", formErrors.advanceAmount)} value={form.advanceAmount || ""} onChange={(e) => setForm({ ...form, advanceAmount: Number(e.target.value) })} disabled={form.paymentStatus === "Unpaid"} />
+              <input type="number" min="0" className={inputClass("input", formErrors.advanceAmount)} value={form.advanceAmount || ""} onChange={(e) => setForm({ ...form, advanceAmount: Number(e.target.value) })} disabled={form.paymentStatus !== "Partial"} />
               <FieldError error={formErrors.advanceAmount} />
             </div>
           </div>
