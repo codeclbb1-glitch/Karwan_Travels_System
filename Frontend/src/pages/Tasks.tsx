@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import {
   Plus, CheckCircle2, Circle, Clock, Trash2,
-  ClipboardList, AlertCircle, User, ChevronDown,
+  ClipboardList, AlertCircle, User, ChevronDown, Pencil,
 } from "lucide-react";
 import { useApp } from "../context";
 import Modal from "../components/Modal";
@@ -29,13 +29,14 @@ const FILTER_OPTIONS: { value: TaskStatus | "all"; label: string }[] = [
 ];
 
 export default function Tasks() {
-  const { tasks, createTask, updateTaskStatus, deleteTask, showToast } = useApp();
+  const { tasks, createTask, updateTask, updateTaskStatus, deleteTask, showToast } = useApp();
 
   const [currentUserId, setCurrentUserId] = useState("");
   const [currentUserName, setCurrentUserName] = useState("");
 
   const [filter, setFilter] = useState<TaskStatus | "all">("all");
-  const [modal, setModal] = useState(false);
+  const [modal, setModal] = useState<"create" | "edit" | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
@@ -64,7 +65,15 @@ export default function Tasks() {
   const openAdd = () => {
     setForm({ title: "", description: "", assignedToName: "", priority: "medium", dueDate: "" });
     setFormErrors({});
-    setModal(true);
+    setEditingTask(null);
+    setModal("create");
+  };
+
+  const openEdit = (task: Task) => {
+    setForm({ title: task.title, description: task.description, assignedToName: task.assignedToName, priority: task.priority, dueDate: task.dueDate });
+    setFormErrors({});
+    setEditingTask(task);
+    setModal("edit");
   };
 
   const handleSave = async () => {
@@ -73,20 +82,31 @@ export default function Tasks() {
     if (hasErrors(errors)) return;
     setSaving(true);
     try {
-      await createTask({
-        title: form.title.trim(),
-        description: form.description.trim(),
-        assignedTo: currentUserId,
-        assignedBy: currentUserId,
-        assignedToName: form.assignedToName.trim(),
-        status: "pending",
-        priority: form.priority,
-        dueDate: form.dueDate,
-      });
-      showToast("Task created successfully");
-      setModal(false);
+      if (modal === "edit" && editingTask) {
+        await updateTask(editingTask.id, {
+          title: form.title.trim(),
+          description: form.description.trim(),
+          assignedToName: form.assignedToName.trim(),
+          priority: form.priority,
+          dueDate: form.dueDate,
+        });
+        showToast("Task updated");
+      } else {
+        await createTask({
+          title: form.title.trim(),
+          description: form.description.trim(),
+          assignedTo: currentUserId,
+          assignedBy: currentUserId,
+          assignedToName: form.assignedToName.trim(),
+          status: "pending",
+          priority: form.priority,
+          dueDate: form.dueDate,
+        });
+        showToast("Task created successfully");
+      }
+      setModal(null);
     } catch {
-      showToast("Failed to create task", "error");
+      showToast(modal === "edit" ? "Failed to update task" : "Failed to create task", "error");
     } finally {
       setSaving(false);
     }
@@ -286,6 +306,15 @@ export default function Tasks() {
 
                   {(isAssignedByMe || task.assignedTo === currentUserId) && (
                     <button
+                      onClick={() => openEdit(task)}
+                      className="text-navy-300 hover:text-primary-600 hover:bg-primary-50 p-1.5 rounded-lg transition-colors"
+                      title="Edit task"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  )}
+                  {(isAssignedByMe || task.assignedTo === currentUserId) && (
+                    <button
                       onClick={() => void handleDelete(task.id)}
                       disabled={isDeleting}
                       className="text-navy-300 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors disabled:opacity-50"
@@ -304,7 +333,7 @@ export default function Tasks() {
       )}
 
       {/* Create Task Modal */}
-      <Modal open={modal} onClose={() => setModal(false)} title="New Task">
+      <Modal open={modal !== null} onClose={() => setModal(null)} title={modal === "edit" ? "Edit Task" : "New Task"}>
         <div className="space-y-4">
           <div>
             <label className="label">Task Title</label>
@@ -368,12 +397,12 @@ export default function Tasks() {
           </div>
 
           <div className="flex gap-3 justify-end pt-1">
-            <button onClick={() => setModal(false)} className="btn-outline">Cancel</button>
+            <button onClick={() => setModal(null)} className="btn-outline">Cancel</button>
             <button onClick={() => void handleSave()} disabled={saving} className="btn-primary">
               {saving ? (
                 <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</>
               ) : (
-                <><Plus className="w-4 h-4" /> Create Task</>
+                <><Plus className="w-4 h-4" /> {modal === "edit" ? "Save Changes" : "Create Task"}</>
               )}
             </button>
           </div>

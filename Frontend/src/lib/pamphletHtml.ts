@@ -139,7 +139,7 @@ export function buildPamphletHtml(
     <!-- Logo + name -->
     <div style="display:flex;align-items:center;gap:18px;">
       <div style="width:70px;height:70px;border-radius:12px;overflow:hidden;border:2px solid rgba(217,119,6,0.5);box-shadow:0 4px 20px rgba(0,0,0,0.4);flex-shrink:0;">
-        <img src="/logo.jpeg" style="width:100%;height:100%;object-fit:cover;" alt="Logo"/>
+        <img src="/logo.jpg" style="width:100%;height:100%;object-fit:cover;" alt="Logo"/>
       </div>
       <div>
         <div style="font-size:26px;font-weight:900;color:#fff;font-family:'Playfair Display',Georgia,serif;letter-spacing:-0.5px;line-height:1;">Karwan-e-Miftah</div>

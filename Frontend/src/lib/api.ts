@@ -140,6 +140,23 @@ export const tasksApi = {
     return taskFromDb(data as Row);
   },
 
+  update: async (id: string, fields: Partial<Pick<Task, "title" | "description" | "assignedToName" | "priority" | "dueDate">>): Promise<Task> => {
+    const { data, error } = await supabase
+      .from("tasks")
+      .update({
+        title: fields.title,
+        description: fields.description,
+        assigned_to_name: fields.assignedToName,
+        priority: fields.priority,
+        due_date: fields.dueDate || null,
+      })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return taskFromDb(data as Row);
+  },
+
   updateStatus: async (id: string, status: Task["status"]): Promise<void> => {
     const { error } = await supabase
       .from("tasks")

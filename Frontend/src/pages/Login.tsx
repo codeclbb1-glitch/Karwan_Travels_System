@@ -42,7 +42,7 @@ export default function Login() {
           {/* Top Header */}
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-sm overflow-hidden shadow-sm">
-              <img src="/logo.jpeg" alt="KMR Logo" className="w-full h-full object-cover" />
+              <img src="/logo.jpg" alt="KMR Logo" className="w-full h-full object-cover" />
             </div>
             <div>
               <p className="font-display font-bold text-white text-lg leading-none tracking-wide">
@@ -103,7 +103,7 @@ export default function Login() {
         {/* Mobile-only logo header */}
         <div className="lg:hidden flex flex-col items-center mb-10 w-full max-w-sm">
           <div className="w-12 h-12 rounded-sm overflow-hidden shadow-sm mb-4">
-            <img src="/logo.jpeg" alt="KMR Logo" className="w-full h-full object-cover" />
+            <img src="/logo.jpg" alt="KMR Logo" className="w-full h-full object-cover" />
           </div>
           <h1 className="font-display font-bold text-navy-900 text-2xl">Karwan-e-Miftah</h1>
           <p className="text-gold-600 text-xs font-semibold tracking-widest mt-1">AGENCY PORTAL</p>

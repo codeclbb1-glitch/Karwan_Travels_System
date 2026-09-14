@@ -62,7 +62,7 @@ export default function DisplayScreen() {
       <div className="relative z-10 flex items-center justify-between px-8 py-6">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-lg border-2 border-gold-400/30">
-            <img src="/logo.jpeg" alt="KMR Logo" className="w-full h-full object-cover" />
+            <img src="/logo.jpg" alt="KMR Logo" className="w-full h-full object-cover" />
           </div>
           <div>
             <h1 className="font-display font-extrabold text-2xl text-white">Karwan-e-Miftah</h1>

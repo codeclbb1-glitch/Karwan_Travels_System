@@ -76,7 +76,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         <div className="flex items-center justify-between px-5 py-5 border-b border-navy-100">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl overflow-hidden shadow-sm border border-navy-100">
-              <img src="/logo.jpeg" alt="KMR Logo" className="w-full h-full object-cover" />
+              <img src="/logo.jpg" alt="KMR Logo" className="w-full h-full object-cover" />
             </div>
             <div>
               <p className="font-display font-bold text-navy-900 text-sm leading-tight">Karwan-e-Miftah</p>

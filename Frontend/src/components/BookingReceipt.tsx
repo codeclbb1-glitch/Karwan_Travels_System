@@ -95,7 +95,7 @@ function buildReceiptHTML(booking: Booking): string {
   <div class="header">
     <div class="brand">
       <div class="logo-wrap">
-        <img src="/logo.jpeg" alt="KMR Logo" />
+        <img src="/logo.jpg" alt="KMR Logo" />
       </div>
       <div>
         <div class="brand-name">Karwan-e-Miftah</div>

@@ -52,6 +52,7 @@ interface AppContextValue {
   loadTasks: () => Promise<void>;
   createTask: (task: Omit<Task, "id" | "createdAt" | "completedAt">) => Promise<void>;
   updateTaskStatus: (id: string, status: Task["status"]) => Promise<void>;
+  updateTask: (id: string, fields: Partial<Pick<Task, "title" | "description" | "assignedToName" | "priority" | "dueDate">>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
 }
 
@@ -221,6 +222,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await loadTasks();
   }, [loadTasks]);
 
+  const updateTask = useCallback(async (id: string, fields: Partial<Pick<Task, "title" | "description" | "assignedToName" | "priority" | "dueDate">>) => {
+    const saved = await tasksApi.update(id, fields);
+    setTasksState((prev) => prev.map((t) => t.id === id ? saved : t));
+  }, []);
+
   const updateTaskStatus = useCallback(async (id: string, status: Task["status"]) => {
     await tasksApi.updateStatus(id, status);
     await loadTasks();
@@ -275,6 +281,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         loadTasks,
         createTask,
         updateTaskStatus,
+        updateTask,
         deleteTask,
       }}
     >
