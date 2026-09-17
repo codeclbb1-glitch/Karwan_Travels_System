@@ -43,7 +43,9 @@ interface AppContextValue {
   investments: Investment[];
   setInvestments: (i: Investment[]) => Promise<void>;
   officeExpenses: OfficeExpense[];
-  setOfficeExpenses: (e: OfficeExpense[]) => Promise<void>;
+  addOfficeExpense: (e: Omit<OfficeExpense, "id">) => Promise<void>;
+  updateOfficeExpense: (id: string, e: Omit<OfficeExpense, "id">) => Promise<void>;
+  deleteOfficeExpense: (id: string) => Promise<void>;
   hotelAllocations: HotelAllocation[];
   setHotelAllocations: (h: HotelAllocation[]) => Promise<void>;
   deleteHotel: (id: string) => Promise<void>;
@@ -192,11 +194,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try { await dataApi.saveInvestments(items); }
     catch (e) { setInvestmentsState(prev); throw e; }
   }, []);
-  const setOfficeExpenses = useCallback(async (items: OfficeExpense[]) => {
-    const prev = await new Promise<OfficeExpense[]>((res) => { setOfficeExpensesState((s) => { res(s); return items; }); });
-    try { await dataApi.saveExpenses(items); }
-    catch (e) { setOfficeExpensesState(prev); throw e; }
+  const addOfficeExpense = useCallback(async (item: Omit<OfficeExpense, "id">) => {
+    const saved = await dataApi.addExpense(item);
+    setOfficeExpensesState((prev) => [saved, ...prev]);
   }, []);
+  const updateOfficeExpense = useCallback(async (id: string, item: Omit<OfficeExpense, "id">) => {
+    const saved = await dataApi.updateExpense(id, item);
+    setOfficeExpensesState((prev) => prev.map((e) => e.id === id ? saved : e));
+  }, []);
+  const deleteOfficeExpense = useCallback(async (id: string) => {
+    setOfficeExpensesState((prev) => prev.filter((e) => e.id !== id));
+    try { await dataApi.deleteExpense(id); }
+    catch (e) { if (role) await loadData(role); throw e; }
+  }, [role, loadData]);
   const setHotelAllocations = useCallback(async (items: HotelAllocation[]) => {
     const prev = await new Promise<HotelAllocation[]>((res) => { setHotelAllocationsState((s) => { res(s); return items; }); });
     try { const saved = await dataApi.saveHotels(items); setHotelAllocationsState(saved); }
@@ -272,7 +282,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         investments,
         setInvestments,
         officeExpenses,
-        setOfficeExpenses,
+        addOfficeExpense,
+        updateOfficeExpense,
+        deleteOfficeExpense,
         hotelAllocations,
         setHotelAllocations,
         deleteHotel,

@@ -80,11 +80,33 @@ export const dataApi = {
     if (ex.length) { const { error } = await supabase.from("investments").upsert(ex.map((i) => ({ id: i.id, ...toRow(i) })), { onConflict: "id" }); if (error) throw error; }
     if (nw.length) { const { error } = await supabase.from("investments").insert(nw.map(toRow)); if (error) throw error; }
   },
-  saveExpenses: async (items: OfficeExpense[]) => {
-    const toRow = (i: OfficeExpense) => ({ office: i.office === "Office 2" ? "office_2" : "office_1", category: i.category.toLowerCase(), amount: i.amount, expense_date: i.date, description: i.description });
-    const ex = items.filter((i) => i.id.length === 36), nw = items.filter((i) => i.id.length !== 36);
-    if (ex.length) { const { error } = await supabase.from("office_expenses").upsert(ex.map((i) => ({ id: i.id, ...toRow(i) })), { onConflict: "id" }); if (error) throw error; }
-    if (nw.length) { const { error } = await supabase.from("office_expenses").insert(nw.map(toRow)); if (error) throw error; }
+  addExpense: async (item: Omit<OfficeExpense, "id">): Promise<OfficeExpense> => {
+    const { data, error } = await supabase.from("office_expenses").insert({
+      office: item.office === "Office 2" ? "office_2" : "office_1",
+      category: item.category.toLowerCase(),
+      amount: item.amount,
+      expense_date: item.date,
+      description: item.description,
+    }).select().single();
+    if (error) throw error;
+    const r = data as Row;
+    return { id: asString(r.id), category: ({ salaries: "Salaries", bills: "Bills", rent: "Rent", food: "Food", miscellaneous: "Miscellaneous" } as Record<string, string>)[asString(r.category)] as OfficeExpense["category"], amount: asNumber(r.amount), date: asString(r.expense_date), description: asString(r.description), office: (r.office === "office_2" ? "Office 2" : "Office 1") as OfficeExpense["office"] };
+  },
+  updateExpense: async (id: string, item: Omit<OfficeExpense, "id">): Promise<OfficeExpense> => {
+    const { data, error } = await supabase.from("office_expenses").update({
+      office: item.office === "Office 2" ? "office_2" : "office_1",
+      category: item.category.toLowerCase(),
+      amount: item.amount,
+      expense_date: item.date,
+      description: item.description,
+    }).eq("id", id).select().single();
+    if (error) throw error;
+    const r = data as Row;
+    return { id: asString(r.id), category: ({ salaries: "Salaries", bills: "Bills", rent: "Rent", food: "Food", miscellaneous: "Miscellaneous" } as Record<string, string>)[asString(r.category)] as OfficeExpense["category"], amount: asNumber(r.amount), date: asString(r.expense_date), description: asString(r.description), office: (r.office === "office_2" ? "Office 2" : "Office 1") as OfficeExpense["office"] };
+  },
+  deleteExpense: async (id: string): Promise<void> => {
+    const { error } = await supabase.from("office_expenses").delete().eq("id", id);
+    if (error) throw error;
   },
 saveHotels: async (items: HotelAllocation[]): Promise<HotelAllocation[]> => {
     const toRow = (i: HotelAllocation) => ({ hotel_name: i.hotelName, city: i.city.toLowerCase(), cost_per_night: i.pricePerPerson });

@@ -1,8 +1,8 @@
 import { useState, useMemo } from "react";
-import { Plus, Trash2, Building2 } from "lucide-react";
+import { Plus, Trash2, Pencil, Building2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useApp } from "../context";
 import Modal from "../components/Modal";
-import { formatPKR, formatPKRShort } from "../data";
+import { formatPKR, formatPKRShort, formatDate } from "../data";
 import type { OfficeExpense, OfficeExpenseCategory } from "../types";
 import { validators, collectErrors, hasErrors, FieldError, inputClass } from "../lib/validation";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
@@ -17,7 +17,7 @@ const categoryColors: Record<string, string> = {
 };
 
 export default function OfficeExpenses() {
-  const { officeExpenses, setOfficeExpenses, showToast } = useApp();
+  const { officeExpenses, addOfficeExpense, updateOfficeExpense, deleteOfficeExpense, showToast } = useApp();
 
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState<Omit<OfficeExpense, "id">>({
@@ -28,7 +28,15 @@ export default function OfficeExpenses() {
     office: "Office 1",
   });
 
+  const [editId, setEditId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
+  const [officeFilter, setOfficeFilter] = useState<string>("All");
+  const [sortField, setSortField] = useState<"date" | "amount" | "category">("date");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   const totalExpenses = useMemo(() => officeExpenses.reduce((s, e) => s + e.amount, 0), [officeExpenses]);
 
@@ -49,33 +57,73 @@ export default function OfficeExpenses() {
     ];
   }, [officeExpenses]);
 
-  const filteredExpenses = useMemo(
-    () => categoryFilter === "All" ? officeExpenses : officeExpenses.filter((e) => e.category === categoryFilter),
-    [officeExpenses, categoryFilter]
-  );
+  const filteredExpenses = useMemo(() => {
+    let list = officeExpenses;
+    if (categoryFilter !== "All") list = list.filter((e) => e.category === categoryFilter);
+    if (officeFilter !== "All") list = list.filter((e) => e.office === officeFilter);
+    list = [...list].sort((a, b) => {
+      let cmp = 0;
+      if (sortField === "date") cmp = a.date.localeCompare(b.date);
+      else if (sortField === "amount") cmp = a.amount - b.amount;
+      else if (sortField === "category") cmp = a.category.localeCompare(b.category);
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return list;
+  }, [officeExpenses, categoryFilter, officeFilter, sortField, sortDir]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredExpenses.length / PAGE_SIZE));
+  const pagedExpenses = filteredExpenses.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const toggleSort = (field: "date" | "amount" | "category") => {
+    if (sortField === field) setSortDir((d) => d === "asc" ? "desc" : "asc");
+    else { setSortField(field); setSortDir("desc"); }
+    setPage(1);
+  };
+
+  const SortIcon = ({ field }: { field: "date" | "amount" | "category" }) => {
+    if (sortField !== field) return <ChevronUp className="w-3 h-3 opacity-30" />;
+    return sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />;
+  };
 
   const openAdd = () => {
+    setEditId(null);
     setForm({ category: "Salaries", amount: 0, date: new Date().toISOString().slice(0, 10), description: "", office: "Office 1" });
     setModal(true);
   };
 
-  const save = () => {
+  const openEdit = (e: OfficeExpense) => {
+    setEditId(e.id);
+    setForm({ category: e.category, amount: e.amount, date: e.date, description: e.description, office: e.office });
+    setModal(true);
+  };
+
+  const save = async () => {
     const errors = collectErrors([
       ["amount", validators.positiveNumber(form.amount, "Amount")],
       ["date", validators.dateRequired(form.date, "Date")],
     ]);
-    if (hasErrors(errors)) {
-      showToast(Object.values(errors)[0], "error");
-      return;
-    }
-    setOfficeExpenses([{ ...form, id: "oe" + Date.now() }, ...officeExpenses]);
-    showToast("Expense added successfully");
-    setModal(false);
+    if (hasErrors(errors)) { showToast(Object.values(errors)[0], "error"); return; }
+    setSaving(true);
+    try {
+      if (editId) {
+        await updateOfficeExpense(editId, form);
+        showToast("Expense updated successfully");
+      } else {
+        await addOfficeExpense(form);
+        showToast("Expense added successfully");
+        setPage(1);
+      }
+      setModal(false);
+    } catch { showToast("Failed to save expense", "error"); }
+    finally { setSaving(false); }
   };
 
-  const remove = (id: string) => {
-    setOfficeExpenses(officeExpenses.filter((e) => e.id !== id));
-    showToast("Expense removed", "info");
+  const remove = async (id: string) => {
+    try {
+      await deleteOfficeExpense(id);
+      showToast("Expense removed", "info");
+    } catch { showToast("Failed to delete expense", "error"); }
+    finally { setConfirmDeleteId(null); }
   };
 
   return (
@@ -152,54 +200,103 @@ export default function OfficeExpenses() {
       <div className="card overflow-hidden">
         <div className="px-5 py-4 border-b border-navy-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <h2 className="font-display font-bold text-navy-900">All Expense Entries</h2>
-          <select className="input w-auto text-sm" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-            <option value="All">All Categories</option>
-            {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
+          <div className="flex gap-2">
+            <select className="input w-auto text-sm" value={officeFilter} onChange={(e) => { setOfficeFilter(e.target.value); setPage(1); }}>
+              <option value="All">All Offices</option>
+              <option value="Office 1">Office 1</option>
+              <option value="Office 2">Office 2</option>
+            </select>
+            <select className="input w-auto text-sm" value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}>
+              <option value="All">All Categories</option>
+              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
+            <colgroup>
+                <col className="w-28" />
+                <col className="w-32" />
+                <col className="w-24" />
+                <col />
+                <col className="w-36" />
+                <col className="w-24" />
+              </colgroup>
             <thead className="bg-navy-50 border-b border-navy-100">
               <tr>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Date</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Category</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">
+                  <button className="flex items-center gap-1 hover:text-navy-800" onClick={() => toggleSort("date")}>Date <SortIcon field="date" /></button>
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">
+                  <button className="flex items-center gap-1 hover:text-navy-800" onClick={() => toggleSort("category")}>Category <SortIcon field="category" /></button>
+                </th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Office</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Description</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Amount</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Action</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">
+                  <button className="flex items-center gap-1 ml-auto hover:text-navy-800" onClick={() => toggleSort("amount")}>Amount <SortIcon field="amount" /></button>
+                </th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-navy-50">
-              {filteredExpenses.length === 0 && (
+              {pagedExpenses.length === 0 && (
                 <tr><td colSpan={6} className="px-4 py-8 text-center text-navy-400 text-sm">No expenses found</td></tr>
               )}
-              {filteredExpenses.map((e) => (
+              {pagedExpenses.map((e) => (
                 <tr key={e.id} className="table-row-hover">
-                  <td className="px-4 py-3 text-sm text-navy-500">{e.date}</td>
+                  <td className="px-4 py-3 text-sm text-navy-500 whitespace-nowrap">{formatDate(e.date)}</td>
                   <td className="px-4 py-3">
-                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-navy-700">
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: categoryColors[e.category] }}></span>
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-navy-700 whitespace-nowrap">
+                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: categoryColors[e.category] }}></span>
                       {e.category}
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`badge ${e.office === "Office 1" ? "badge-green" : "badge-gold"}`}>{e.office}</span>
+                    <span className={`badge whitespace-nowrap ${e.office === "Office 1" ? "badge-green" : "badge-gold"}`}>{e.office}</span>
                   </td>
                   <td className="px-4 py-3 text-sm text-navy-500">{e.description}</td>
-                  <td className="px-4 py-3 text-right text-sm font-bold text-navy-800">{formatPKR(e.amount)}</td>
-                  <td className="px-4 py-3 text-center">
-                    <button onClick={() => remove(e.id)} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <td className="px-4 py-3 text-right text-sm font-bold text-navy-800 whitespace-nowrap">{formatPKR(e.amount)}</td>
+                  <td className="px-4 py-3">
+                    {confirmDeleteId === e.id ? (
+                      <div className="flex items-center justify-center gap-1">
+                        <button onClick={() => void remove(e.id)} className="text-xs font-semibold text-white bg-red-500 hover:bg-red-600 px-2 py-1 rounded">Yes</button>
+                        <button onClick={() => setConfirmDeleteId(null)} className="text-xs font-semibold text-navy-600 bg-navy-100 hover:bg-navy-200 px-2 py-1 rounded">No</button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center gap-1">
+                        <button onClick={() => openEdit(e)} className="text-navy-400 hover:text-primary-600 p-1.5 rounded-lg hover:bg-primary-50">
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => setConfirmDeleteId(e.id)} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        {totalPages > 1 && (
+          <div className="px-5 py-3 border-t border-navy-100 flex items-center justify-between text-sm text-navy-500">
+            <span>{filteredExpenses.length} entries · Page {page} of {totalPages}</span>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="p-1.5 rounded hover:bg-navy-100 disabled:opacity-30">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <button key={p} onClick={() => setPage(p)} className={`w-7 h-7 rounded text-xs font-medium ${p === page ? "bg-primary-600 text-white" : "hover:bg-navy-100"}`}>{p}</button>
+              ))}
+              <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-1.5 rounded hover:bg-navy-100 disabled:opacity-30">
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      <Modal open={modal} onClose={() => setModal(false)} title="Add Office Expense">
+      <Modal open={modal} onClose={() => setModal(false)} title={editId ? "Edit Office Expense" : "Add Office Expense"}>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -234,7 +331,7 @@ export default function OfficeExpenses() {
           </div>
           <div className="flex gap-3 justify-end">
             <button onClick={() => setModal(false)} className="btn-outline">Cancel</button>
-            <button onClick={save} className="btn-primary">Save</button>
+            <button onClick={() => void save()} disabled={saving} className="btn-primary disabled:opacity-60">{saving ? "Saving..." : "Save"}</button>
           </div>
         </div>
       </Modal>
