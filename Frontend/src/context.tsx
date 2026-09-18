@@ -296,7 +296,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setHotelAllocations,
         deleteHotel,
         createBooking,
-  deleteBooking,
         tasks,
         loadTasks,
         createTask,
