@@ -40,6 +40,7 @@ interface AppContextValue {
   deleteUmrahPackage: (id: string) => Promise<void>;
   bookings: Booking[];
   setBookings: (b: Booking[]) => void;
+  deleteBooking: (id: string) => Promise<void>;
   investments: Investment[];
   setInvestments: (i: Investment[]) => Promise<void>;
   officeExpenses: OfficeExpense[];
@@ -189,6 +190,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     catch (e) { setUmrahPackagesState(prev); throw e; }
   }, [umrahPackages]);
   const setBookings = useCallback((items: Booking[]) => { setBookingsState(items); }, []);
+  const deleteBooking = useCallback(async (id: string) => {
+    setBookingsState((prev) => prev.filter((b) => b.id !== id));
+    try { await dataApi.deleteBooking(id); }
+    catch (e) { if (role) await loadData(role); throw e; }
+  }, [role, loadData]);
   const setInvestments = useCallback(async (items: Investment[]) => {
     const prev = await new Promise<Investment[]>((res) => { setInvestmentsState((s) => { res(s); return items; }); });
     try { await dataApi.saveInvestments(items); }
@@ -279,6 +285,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         deleteUmrahPackage,
         bookings,
         setBookings,
+        deleteBooking,
         investments,
         setInvestments,
         officeExpenses,
@@ -289,6 +296,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setHotelAllocations,
         deleteHotel,
         createBooking,
+  deleteBooking,
         tasks,
         loadTasks,
         createTask,

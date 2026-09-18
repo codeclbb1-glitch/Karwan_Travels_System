@@ -9,6 +9,7 @@ import {
   rolesApi, permissionsApi, usersApi,
   type AppRole, type Permission, type UserProfile,
 } from "../lib/userManagementApi";
+import Pagination from "../components/Pagination";
 
 type Tab = "users" | "roles" | "permissions";
 
@@ -42,6 +43,8 @@ function TabButton({ active, onClick, icon, label }: { active: boolean; onClick:
 function UsersTab({ roles, showToast }: { roles: AppRole[]; showToast: (m: string, t?: "success" | "error" | "info") => void }) {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [usersPage, setUsersPage] = useState(1);
+  const USERS_PAGE_SIZE = 10;
   const [inviteModal, setInviteModal] = useState(false);
   const [editModal, setEditModal] = useState<UserProfile | null>(null);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
@@ -172,7 +175,7 @@ function UsersTab({ roles, showToast }: { roles: AppRole[]; showToast: (m: strin
               </tr>
             </thead>
             <tbody className="divide-y divide-navy-50">
-              {users.map((u) => (
+              {users.slice((usersPage - 1) * USERS_PAGE_SIZE, usersPage * USERS_PAGE_SIZE).map((u) => (
                 <>
                   <tr key={u.id} className="table-row-hover">
                     <td className="px-4 py-3 text-sm font-medium text-navy-800">{u.fullName}</td>
@@ -252,6 +255,7 @@ function UsersTab({ roles, showToast }: { roles: AppRole[]; showToast: (m: strin
               ))}
             </tbody>
           </table>
+          <Pagination page={usersPage} totalPages={Math.max(1, Math.ceil(users.length / USERS_PAGE_SIZE))} totalItems={users.length} pageSize={USERS_PAGE_SIZE} onPageChange={setUsersPage} />
         </div>
       )}
 

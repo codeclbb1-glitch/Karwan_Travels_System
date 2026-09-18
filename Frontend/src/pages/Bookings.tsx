@@ -1,8 +1,10 @@
 import { useState, useMemo } from "react";
-import { Plus, Search, CalendarCheck, X, Check, Package, Pencil, Receipt } from "lucide-react";
+import { Plus, Search, CalendarCheck, X, Check, Package, Pencil, Receipt, Trash2 } from "lucide-react";
 import { useApp } from "../context";
 import Modal from "../components/Modal";
 import BookingReceipt from "../components/BookingReceipt";
+import Pagination from "../components/Pagination";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { formatPKR, formatDate } from "../data";
 import type { Booking as BookingType, ServiceType } from "../types";
 import { validators, collectErrors, hasErrors, FieldError, inputClass, type FieldErrors } from "../lib/validation";
@@ -25,7 +27,7 @@ const emptyBooking: Omit<BookingType, "id"> = {
 };
 
 export default function Bookings() {
-  const { role, bookings, hajjPackages, umrahPackages, hotelAllocations, createBooking, showToast } = useApp();
+  const { role, bookings, hajjPackages, umrahPackages, hotelAllocations, createBooking, deleteBooking, showToast } = useApp();
   const isAdmin = role === "admin";
 
   const [modal, setModal] = useState(false);
@@ -35,6 +37,7 @@ export default function Bookings() {
   const [lineLabel, setLineLabel] = useState("");
   const [linePrice, setLinePrice] = useState("");
   const [receiptBooking, setReceiptBooking] = useState<BookingType | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
 
   const [search, setSearch] = useState("");
   const [filterService, setFilterService] = useState("all");
@@ -42,6 +45,8 @@ export default function Bookings() {
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
   const [formErrors, setFormErrors] = useState<FieldErrors>({});
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   const availablePackages = (form.serviceType === "Hajj" ? hajjPackages : umrahPackages).filter((p) => !("mode" in p && p.mode === "Form Resale to Agent"));
 
@@ -161,6 +166,17 @@ export default function Bookings() {
     }
   };
 
+  const handleDeleteBooking = async (id: string) => {
+    try {
+      await deleteBooking(id);
+      showToast("Booking deleted", "info");
+    } catch {
+      showToast("Failed to delete booking", "error");
+    } finally {
+      setConfirmDelete(null);
+    }
+  };
+
   const filtered = useMemo(() => bookings.filter((b) => {
     const q = search.toLowerCase();
     return (b.customerName.toLowerCase().includes(q) || b.packageName.toLowerCase().includes(q) || b.cnicPassport.toLowerCase().includes(q))
@@ -169,6 +185,8 @@ export default function Bookings() {
       && (!filterDateFrom || b.bookingDate >= filterDateFrom)
       && (!filterDateTo || b.bookingDate <= filterDateTo);
   }), [bookings, search, filterService, filterStatus, filterDateFrom, filterDateTo]);
+
+  const pagedBookings = useMemo(() => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [filtered, page]);
 
 
   return (
@@ -185,22 +203,22 @@ export default function Bookings() {
       <div className="card p-4 flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-navy-300" />
-          <input className="input pl-10" placeholder="Search by name, package, CNIC..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input className="input pl-10" placeholder="Search by name, package, CNIC..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
         </div>
         <div className="flex flex-wrap gap-3">
-          <select className="input sm:w-40" value={filterService} onChange={(e) => setFilterService(e.target.value)}>
+          <select className="input sm:w-40" value={filterService} onChange={(e) => { setFilterService(e.target.value); setPage(1); }}>
             <option value="all">All Services</option>
             <option value="Hajj">Hajj</option>
             <option value="Umrah">Umrah</option>
           </select>
-          <select className="input sm:w-40" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+          <select className="input sm:w-40" value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}>
             <option value="all">All Status</option>
             <option value="Paid">Paid</option>
             <option value="Partial">Partial</option>
             <option value="Unpaid">Unpaid</option>
           </select>
-          <input type="date" className="input sm:w-40" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} title="From date" />
-          <input type="date" className="input sm:w-40" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} title="To date" />
+          <input type="date" className="input sm:w-40" value={filterDateFrom} onChange={(e) => { setFilterDateFrom(e.target.value); setPage(1); }} title="From date" />
+          <input type="date" className="input sm:w-40" value={filterDateTo} onChange={(e) => { setFilterDateTo(e.target.value); setPage(1); }} title="To date" />
         </div>
       </div>
 
@@ -219,10 +237,11 @@ export default function Bookings() {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Departure</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Arrival</th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Receipt</th>
+                {isAdmin && <th className="text-center px-4 py-3 text-xs font-semibold text-navy-500 uppercase tracking-wide">Delete</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-navy-50">
-              {filtered.map((b) => (
+              {pagedBookings.map((b) => (
                 <tr key={b.id} className="table-row-hover">
                   <td className="px-4 py-3">
                     <p className="font-medium text-navy-800 text-sm">{b.customerName}</p>
@@ -247,18 +266,34 @@ export default function Bookings() {
                       <Receipt className="w-4 h-4 text-navy-500" />
                     </button>
                   </td>
+                  {isAdmin && (
+                    <td className="px-4 py-3 text-center">
+                      <button onClick={() => setConfirmDelete({ id: b.id, name: b.customerName })} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={8} className="text-center py-12 text-navy-400 text-sm">No bookings found matching your filters.</td></tr>
+                <tr><td colSpan={isAdmin ? 10 : 8} className="text-center py-12 text-navy-400 text-sm">No bookings found matching your filters.</td></tr>
               )}
             </tbody>
           </table>
         </div>
+        <Pagination page={page} totalPages={Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
       </div>
 
       {/* Receipt modal */}
       {receiptBooking && <BookingReceipt booking={receiptBooking} onClose={() => setReceiptBooking(null)} />}
+
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        title="Delete Booking"
+        message={`Booking for "${confirmDelete?.name}" will be permanently deleted. This cannot be undone.`}
+        onConfirm={() => confirmDelete && void handleDeleteBooking(confirmDelete.id)}
+        onCancel={() => setConfirmDelete(null)}
+      />
 
       {/* New Booking Modal */}
       <Modal open={modal} onClose={() => setModal(false)} title="New Booking" size="xl">

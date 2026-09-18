@@ -4,10 +4,13 @@ import { useApp } from "../context";
 import StatCard from "../components/StatCard";
 import { formatPKR, formatPKRShort, formatDate } from "../data";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
+import Pagination from "../components/Pagination";
 
 export default function Finance() {
   const { bookings, officeExpenses } = useApp();
   const [search, setSearch] = useState("");
+  const [financePage, setFinancePage] = useState(1);
+  const FINANCE_PAGE_SIZE = 10;
 
   const stats = useMemo(() => {
     const hajjBookings = bookings.filter((b) => b.serviceType === "Hajj");
@@ -65,6 +68,11 @@ export default function Finance() {
       b.serviceType.toLowerCase().includes(q)
     );
   }, [bookings, search]);
+
+  const pagedFinanceBookings = useMemo(
+    () => filteredBookings.slice((financePage - 1) * FINANCE_PAGE_SIZE, financePage * FINANCE_PAGE_SIZE),
+    [filteredBookings, financePage]
+  );
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -141,7 +149,7 @@ export default function Finance() {
           <h2 className="font-display font-bold text-navy-900">Booking Income</h2>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-navy-400" />
-            <input className="input pl-9 w-56 text-sm" placeholder="Search customer or package..." value={search} onChange={(e) => setSearch(e.target.value)} />
+            <input className="input pl-9 w-56 text-sm" placeholder="Search customer or package..." value={search} onChange={(e) => { setSearch(e.target.value); setFinancePage(1); }} />
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -160,7 +168,7 @@ export default function Finance() {
               {filteredBookings.length === 0 && (
                 <tr><td colSpan={6} className="px-4 py-8 text-center text-navy-400 text-sm">{search ? "No results found" : "No bookings yet"}</td></tr>
               )}
-              {filteredBookings.map((b) => (
+              {pagedFinanceBookings.map((b) => (
                 <tr key={b.id} className="table-row-hover">
                   <td className="px-4 py-3 text-sm text-navy-500">{formatDate(b.bookingDate)}</td>
                   <td className="px-4 py-3 text-sm font-medium text-navy-700">{b.customerName}</td>
@@ -175,6 +183,7 @@ export default function Finance() {
             </tbody>
           </table>
         </div>
+        <Pagination page={financePage} totalPages={Math.max(1, Math.ceil(filteredBookings.length / FINANCE_PAGE_SIZE))} totalItems={filteredBookings.length} pageSize={FINANCE_PAGE_SIZE} onPageChange={setFinancePage} />
       </div>
     </div>
   );

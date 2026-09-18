@@ -5,6 +5,7 @@ import Modal from "../components/Modal";
 import { formatPKR } from "../data";
 import type { UmrahPackage, TransportType } from "../types";
 import { validators, collectErrors, hasErrors, FieldError, inputClass, type FieldErrors } from "../lib/validation";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 const emptyPackage: Omit<UmrahPackage, "id"> = {
   name: "",
@@ -41,6 +42,7 @@ export default function Umrah() {
   const [editPkgId, setEditPkgId] = useState<string | null>(null);
   const [pkgForm, setPkgForm] = useState<Omit<UmrahPackage, "id">>(emptyPackage);
   const [pkgErrors, setPkgErrors] = useState<FieldErrors>({});
+  const [confirmDeleteId, setConfirmDeleteId] = useState<{ id: string; name: string } | null>(null);
 
   const validatePkg = () => collectErrors([
     ["name", validators.required(pkgForm.name, "Package name")],
@@ -76,6 +78,7 @@ export default function Umrah() {
       await deleteUmrahPackage(id);
       showToast("Package deleted", "info");
     } catch { showToast("Failed to delete package", "error"); }
+    finally { setConfirmDeleteId(null); }
   };
 
   const toggleInclusion = (key: string) => {
@@ -115,7 +118,7 @@ export default function Umrah() {
                     <button onClick={() => openEditPkg(p)} className="text-navy-400 hover:text-primary-600 p-1.5 rounded-lg hover:bg-primary-50">
                       <Pencil className="w-4 h-4" />
                     </button>
-                    <button onClick={() => void deletePkg(p.id)} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
+                    <button onClick={() => setConfirmDeleteId({ id: p.id, name: p.name })} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -158,6 +161,14 @@ export default function Umrah() {
           );
         })}
       </div>
+
+      <ConfirmDialog
+        open={confirmDeleteId !== null}
+        title="Delete Package"
+        message={`"${confirmDeleteId?.name}" will be permanently deleted. This cannot be undone.`}
+        onConfirm={() => confirmDeleteId && void deletePkg(confirmDeleteId.id)}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
 
       {/* Package Modal */}
       <Modal open={pkgModal} onClose={() => setPkgModal(false)} title={editPkgId ? "Edit Umrah Package" : "Add Umrah Package"} size="xl">

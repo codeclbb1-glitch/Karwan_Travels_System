@@ -5,6 +5,8 @@ import Modal from "../components/Modal";
 import { formatPKR, formatDate } from "../data";
 import type { HajjFormBatch, HajjPackage, TransportType, PackageMode } from "../types";
 import { validators, collectErrors, hasErrors, FieldError, inputClass, type FieldErrors } from "../lib/validation";
+import Pagination from "../components/Pagination";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 const emptyBatch: Omit<HajjFormBatch, "id"> = {
   batchName: "",
@@ -47,6 +49,8 @@ export default function Hajj() {
   const isAdmin = role === "admin";
 
   const [tab, setTab] = useState<"packages" | "forms">("packages");
+  const [pkgPage, setPkgPage] = useState(1);
+  const PKG_PAGE_SIZE = 10;
   const [batchModal, setBatchModal] = useState(false);
   const [pkgModal, setPkgModal] = useState(false);
   const [editBatchId, setEditBatchId] = useState<string | null>(null);
@@ -55,6 +59,7 @@ export default function Hajj() {
   const [pkgForm, setPkgForm] = useState<Omit<HajjPackage, "id">>(emptyPackage);
   const [batchErrors, setBatchErrors] = useState<FieldErrors>({});
   const [pkgErrors, setPkgErrors] = useState<FieldErrors>({});
+  const [confirmDelete, setConfirmDelete] = useState<{ type: "pkg" | "batch"; id: string; name: string } | null>(null);
 
   const validateBatch = () => collectErrors([
     ["batchName", validators.required(batchForm.batchName, "Batch name")],
@@ -84,6 +89,8 @@ export default function Hajj() {
   const pkgProfit = pkgForm.sellingPrice - pkgTotalCost;
   const agentProfit = pkgForm.agentPrice - pkgTotalCost;
 
+  const pagedPackages = hajjPackages.slice((pkgPage - 1) * PKG_PAGE_SIZE, pkgPage * PKG_PAGE_SIZE);
+
   const openAddBatch = () => { setEditBatchId(null); setBatchForm(emptyBatch); setBatchErrors({}); setBatchModal(true); };
   const openEditBatch = (b: HajjFormBatch) => { setEditBatchId(b.id); const { id, ...rest } = b; setBatchForm(rest); setBatchErrors({}); setBatchModal(true); };
   const deleteBatch = async (id: string) => {
@@ -91,6 +98,7 @@ export default function Hajj() {
       await setHajjFormBatches(hajjFormBatches.filter((b) => b.id !== id));
       showToast("Batch deleted", "info");
     } catch { showToast("Failed to delete batch", "error"); }
+    finally { setConfirmDelete(null); }
   };
 
   const saveBatch = async () => {
@@ -116,6 +124,7 @@ export default function Hajj() {
       await deleteHajjPackage(id);
       showToast("Package deleted", "info");
     } catch { showToast("Failed to delete package", "error"); }
+    finally { setConfirmDelete(null); }
   };
 
   const toggleInclusion = (key: string) => {
@@ -195,7 +204,7 @@ export default function Hajj() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-navy-50">
-                {hajjPackages.map((p) => {
+                {pagedPackages.map((p) => {
                   const cost = p.hotelCost + p.ticketCost + p.visaCost + p.transportCost + p.foodCost + p.otherCost;
                   const profit = p.sellingPrice - cost;
                   return (
@@ -232,7 +241,7 @@ export default function Hajj() {
                             </button>
                           )}
                           {isAdmin && (
-                            <button onClick={() => void deletePkg(p.id)} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
+                            <button onClick={() => setConfirmDelete({ type: "pkg", id: p.id, name: p.name })} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           )}
@@ -244,6 +253,7 @@ export default function Hajj() {
               </tbody>
             </table>
           </div>
+          <Pagination page={pkgPage} totalPages={Math.max(1, Math.ceil(hajjPackages.length / PKG_PAGE_SIZE))} totalItems={hajjPackages.length} pageSize={PKG_PAGE_SIZE} onPageChange={setPkgPage} />
         </div>
       )}
 
@@ -264,7 +274,7 @@ export default function Hajj() {
                       <button onClick={() => openEditBatch(b)} className="text-navy-400 hover:text-primary-600 p-1.5 rounded-lg hover:bg-primary-50">
                         <Pencil className="w-4 h-4" />
                       </button>
-                      <button onClick={() => void deleteBatch(b.id)} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
+                      <button onClick={() => setConfirmDelete({ type: "batch", id: b.id, name: b.batchName })} className="text-navy-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -307,6 +317,14 @@ export default function Hajj() {
           })}
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        title={confirmDelete?.type === "pkg" ? "Delete Package" : "Delete Batch"}
+        message={`"${confirmDelete?.name}" will be permanently deleted. This cannot be undone.`}
+        onConfirm={() => confirmDelete && (confirmDelete.type === "pkg" ? void deletePkg(confirmDelete.id) : void deleteBatch(confirmDelete.id))}
+        onCancel={() => setConfirmDelete(null)}
+      />
 
       {/* Batch Modal */}
       <Modal open={batchModal} onClose={() => setBatchModal(false)} title={editBatchId ? "Edit Form Batch" : "Add Form Batch"}>

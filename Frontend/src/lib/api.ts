@@ -117,6 +117,7 @@ saveHotels: async (items: HotelAllocation[]): Promise<HotelAllocation[]> => {
     return results.map((r) => ({ id: asString(r.id), hotelName: asString(r.hotel_name), city: (r.city === "madina" ? "Madina" : "Makkah") as HotelAllocation["city"], pricePerPerson: asNumber(r.cost_per_night) }));
   },
   deleteHotel: async (id: string): Promise<void> => { const { error } = await supabase.from("hotel_inventory").delete().eq("id", id); if (error) throw error; },
+  deleteBooking: async (id: string): Promise<void> => { const { error } = await supabase.from("bookings").delete().eq("id", id); if (error) throw error; },
 };
 
 const taskFromDb = (r: Row): Task => ({

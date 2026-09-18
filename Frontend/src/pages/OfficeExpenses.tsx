@@ -1,11 +1,12 @@
 import { useState, useMemo } from "react";
-import { Plus, Trash2, Pencil, Building2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Trash2, Pencil, Building2, ChevronUp, ChevronDown } from "lucide-react";
 import { useApp } from "../context";
 import Modal from "../components/Modal";
 import { formatPKR, formatPKRShort, formatDate } from "../data";
 import type { OfficeExpense, OfficeExpenseCategory } from "../types";
 import { validators, collectErrors, hasErrors, FieldError, inputClass } from "../lib/validation";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import Pagination from "../components/Pagination";
 
 const categories: OfficeExpenseCategory[] = ["Salaries", "Bills", "Rent", "Food", "Miscellaneous"];
 const categoryColors: Record<string, string> = {
@@ -279,20 +280,7 @@ export default function OfficeExpenses() {
           </table>
         </div>
         {totalPages > 1 && (
-          <div className="px-5 py-3 border-t border-navy-100 flex items-center justify-between text-sm text-navy-500">
-            <span>{filteredExpenses.length} entries · Page {page} of {totalPages}</span>
-            <div className="flex items-center gap-1">
-              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="p-1.5 rounded hover:bg-navy-100 disabled:opacity-30">
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                <button key={p} onClick={() => setPage(p)} className={`w-7 h-7 rounded text-xs font-medium ${p === page ? "bg-primary-600 text-white" : "hover:bg-navy-100"}`}>{p}</button>
-              ))}
-              <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-1.5 rounded hover:bg-navy-100 disabled:opacity-30">
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          <Pagination page={page} totalPages={totalPages} totalItems={filteredExpenses.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
         )}
       </div>
 
