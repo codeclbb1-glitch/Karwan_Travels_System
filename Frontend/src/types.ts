@@ -107,11 +107,17 @@ export interface OfficeExpense {
   office: "Office 1" | "Office 2";
 }
 
+export type OccupancyType = "Sharing" | "Quad" | "Triple" | "Double";
+
 export interface HotelAllocation {
   id: string;
   hotelName: string;
   city: "Makkah" | "Madina";
-  pricePerPerson: number;
+  pricePerPerson: number; // legacy / default fallback
+  sharingPrice: number;
+  quadPrice: number;
+  triplePrice: number;
+  doublePrice: number;
 }
 
 export interface Toast {

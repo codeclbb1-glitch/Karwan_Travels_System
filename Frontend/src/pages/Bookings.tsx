@@ -1,12 +1,12 @@
 import { useState, useMemo } from "react";
-import { Plus, Search, CalendarCheck, X, Check, Package, Pencil, Receipt, Trash2 } from "lucide-react";
+import { Plus, Search, CalendarCheck, X, Check, Package, Pencil, Receipt, Trash2, Users } from "lucide-react";
 import { useApp } from "../context";
 import Modal from "../components/Modal";
 import BookingReceipt from "../components/BookingReceipt";
 import Pagination from "../components/Pagination";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { formatPKR, formatDate } from "../data";
-import type { Booking as BookingType, ServiceType } from "../types";
+import type { Booking as BookingType, OccupancyType, ServiceType } from "../types";
 import { validators, collectErrors, hasErrors, FieldError, inputClass, type FieldErrors } from "../lib/validation";
 
 type BookingMode = "package" | "custom";
@@ -33,6 +33,8 @@ export default function Bookings() {
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState<Omit<BookingType, "id">>(emptyBooking);
   const [bookingMode, setBookingMode] = useState<BookingMode>("package");
+  const [occupancyMakkah, setOccupancyMakkah] = useState<OccupancyType>("Sharing");
+  const [occupancyMadina, setOccupancyMadina] = useState<OccupancyType>("Sharing");
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [lineLabel, setLineLabel] = useState("");
   const [linePrice, setLinePrice] = useState("");
@@ -65,17 +67,52 @@ export default function Bookings() {
 
   const customTotal = useMemo(() => lineItems.reduce((s, i) => s + i.price, 0), [lineItems]);
 
+  // Hotels linked to this booking (by ID stored on the form)
+  const makkahHotel = useMemo(() => hotelAllocations.find((h) => h.id === form.hotelMakkahId) ?? null, [hotelAllocations, form.hotelMakkahId]);
+  const madinaHotel = useMemo(() => hotelAllocations.find((h) => h.id === form.hotelMadinaId) ?? null, [hotelAllocations, form.hotelMadinaId]);
+
+  // Whether each hotel has any occupancy pricing configured
+  const makkahHasOccupancy = useMemo(() => !!makkahHotel && [makkahHotel.sharingPrice, makkahHotel.quadPrice, makkahHotel.triplePrice, makkahHotel.doublePrice].some((p) => p > 0), [makkahHotel]);
+  const madinaHasOccupancy = useMemo(() => !!madinaHotel && [madinaHotel.sharingPrice, madinaHotel.quadPrice, madinaHotel.triplePrice, madinaHotel.doublePrice].some((p) => p > 0), [madinaHotel]);
+
+  // Whether hotel inclusions are actually selected
+  const makkahIncluded = form.selectedInclusions.some((i) => i === "Hotel" || i === "Hotel Makkah");
+  const madinaIncluded = form.selectedInclusions.includes("Hotel Madina");
+
+  const showMakkahOccupancy = makkahHasOccupancy && makkahIncluded;
+  const showMadinaOccupancy = madinaHasOccupancy && madinaIncluded;
+
+  // Occupancy-adjusted hotel cost replacing the package's base hotel cost
+  const occupancyHotelAdjustment = useMemo(() => {
+    if (!selectedPackage) return 0;
+    const occKey = (occ: OccupancyType) => (occ.toLowerCase() + "Price") as "sharingPrice" | "quadPrice" | "triplePrice" | "doublePrice";
+    let adjustment = 0;
+    if (showMakkahOccupancy && makkahHotel) {
+      const occupancyRate = makkahHotel[occKey(occupancyMakkah)];
+      const baseRate = "hotelCost" in selectedPackage ? selectedPackage.hotelCost : selectedPackage.hotelMakkahCost;
+      if (occupancyRate > 0) adjustment += occupancyRate - baseRate;
+    }
+    if (showMadinaOccupancy && madinaHotel) {
+      const occupancyRate = madinaHotel[occKey(occupancyMadina)];
+      const baseRate = "hotelMadinaCost" in selectedPackage ? selectedPackage.hotelMadinaCost : 0;
+      if (occupancyRate > 0) adjustment += occupancyRate - baseRate;
+    }
+    return adjustment;
+  }, [selectedPackage, makkahHotel, madinaHotel, occupancyMakkah, occupancyMadina, showMakkahOccupancy, showMadinaOccupancy]);
+
   const livePrice = useMemo(() => {
     if (bookingMode === "custom") return customTotal;
     if (!selectedPackage) return 0;
     const deselected = selectedPackage.inclusions.filter((inc) => !form.selectedInclusions.includes(inc));
     const deducted = deselected.reduce((sum, inc) => sum + (inclusionCostMap[inc] ?? 0), 0);
-    return Math.max(0, Math.round(selectedPackage.sellingPrice - deducted));
-  }, [bookingMode, customTotal, selectedPackage, form.selectedInclusions, inclusionCostMap]);
+    return Math.max(0, Math.round(selectedPackage.sellingPrice - deducted + occupancyHotelAdjustment));
+  }, [bookingMode, customTotal, selectedPackage, form.selectedInclusions, inclusionCostMap, occupancyHotelAdjustment]);
 
   const openAdd = () => {
     setForm({ ...emptyBooking, bookingDate: new Date().toISOString().slice(0, 10) });
     setBookingMode("package");
+    setOccupancyMakkah("Sharing");
+    setOccupancyMadina("Sharing");
     setLineItems([]);
     setLineLabel("");
     setLinePrice("");
@@ -89,6 +126,8 @@ export default function Bookings() {
 
   const switchMode = (mode: BookingMode) => {
     setBookingMode(mode);
+    setOccupancyMakkah("Sharing");
+    setOccupancyMadina("Sharing");
     setLineItems([]);
     setForm((f) => ({ ...f, packageId: "", packageName: "", selectedInclusions: [], isCustom: mode === "custom", customPackageName: "", customPrice: 0, customLineItems: [], hotelMakkahId: "", hotelMadinaId: "" }));
     setFormErrors({});
@@ -98,13 +137,31 @@ export default function Bookings() {
     const pkg = availablePackages.find((p) => p.id === pkgId);
     if (!pkg) return;
     let inclusions: string[];
+    let hotelMakkahId = "";
+    let hotelMadinaId = "";
     if ("hotelCost" in pkg) {
+      // Hajj package — match Makkah hotel by cost
       const map: [string, number][] = [["Air Ticket", pkg.ticketCost], ["Visa", pkg.visaCost], ["Hotel", pkg.hotelCost], ["Transport", pkg.transportCost], ["Food", pkg.foodCost], ["Other", pkg.otherCost]];
       inclusions = map.filter(([, v]) => v > 0).map(([k]) => k);
+      if (pkg.hotelCost > 0) {
+        const match = hotelAllocations.find((h) => h.city === "Makkah" && h.pricePerPerson === pkg.hotelCost);
+        hotelMakkahId = match?.id ?? "";
+      }
     } else {
+      // Umrah package — match both hotels by cost
       inclusions = [...pkg.inclusions];
+      if (pkg.hotelMakkahCost > 0) {
+        const match = hotelAllocations.find((h) => h.city === "Makkah" && h.pricePerPerson === pkg.hotelMakkahCost);
+        hotelMakkahId = match?.id ?? "";
+      }
+      if (pkg.hotelMadinaCost > 0) {
+        const match = hotelAllocations.find((h) => h.city === "Madina" && h.pricePerPerson === pkg.hotelMadinaCost);
+        hotelMadinaId = match?.id ?? "";
+      }
     }
-    setForm({ ...form, packageId: pkgId, packageName: pkg.name, selectedInclusions: inclusions });
+    setOccupancyMakkah("Sharing");
+    setOccupancyMadina("Sharing");
+    setForm({ ...form, packageId: pkgId, packageName: pkg.name, selectedInclusions: inclusions, hotelMakkahId, hotelMadinaId });
   };
 
   const toggleInclusion = (inc: string) => {
@@ -413,6 +470,57 @@ export default function Bookings() {
                   </div>
                 </div>
               )}
+
+              {/* Occupancy selectors — one per hotel, only shown when hotel has occupancy pricing AND is included */}
+              {(showMakkahOccupancy || showMadinaOccupancy) && (
+                <div className="space-y-3 p-4 rounded-2xl bg-navy-50 border border-navy-100">
+                  <p className="text-xs font-semibold text-navy-500 uppercase tracking-wide">Room Occupancy <span className="font-normal normal-case text-navy-400">— price updates automatically</span></p>
+                  {showMakkahOccupancy && makkahHotel && (
+                    <div>
+                      <p className="text-sm font-medium text-navy-700 mb-2">{makkahHotel.hotelName} <span className="badge badge-green ml-1">Makkah</span></p>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {(["Sharing", "Quad", "Triple", "Double"] as OccupancyType[]).map((type) => {
+                          const key = (type.toLowerCase() + "Price") as "sharingPrice" | "quadPrice" | "triplePrice" | "doublePrice";
+                          const rate = makkahHotel[key];
+                          if (rate === 0) return null;
+                          return (
+                            <button key={type} onClick={() => setOccupancyMakkah(type)}
+                              className={`flex flex-col items-center gap-0.5 p-2.5 rounded-xl border-2 transition-all ${
+                                occupancyMakkah === type ? "border-primary-500 bg-primary-50" : "border-navy-100 hover:border-navy-200"
+                              }`}>
+                              <Users className={`w-4 h-4 ${occupancyMakkah === type ? "text-primary-600" : "text-navy-400"}`} />
+                              <span className={`text-xs font-semibold ${occupancyMakkah === type ? "text-primary-700" : "text-navy-600"}`}>{type}</span>
+                              <span className="text-xs text-navy-400">{(rate / 1000).toFixed(0)}K</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {showMadinaOccupancy && madinaHotel && (
+                    <div>
+                      <p className="text-sm font-medium text-navy-700 mb-2">{madinaHotel.hotelName} <span className="badge badge-gold ml-1">Madina</span></p>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {(["Sharing", "Quad", "Triple", "Double"] as OccupancyType[]).map((type) => {
+                          const key = (type.toLowerCase() + "Price") as "sharingPrice" | "quadPrice" | "triplePrice" | "doublePrice";
+                          const rate = madinaHotel[key];
+                          if (rate === 0) return null;
+                          return (
+                            <button key={type} onClick={() => setOccupancyMadina(type)}
+                              className={`flex flex-col items-center gap-0.5 p-2.5 rounded-xl border-2 transition-all ${
+                                occupancyMadina === type ? "border-gold-500 bg-gold-50" : "border-navy-100 hover:border-navy-200"
+                              }`}>
+                              <Users className={`w-4 h-4 ${occupancyMadina === type ? "text-gold-600" : "text-navy-400"}`} />
+                              <span className={`text-xs font-semibold ${occupancyMadina === type ? "text-gold-700" : "text-navy-600"}`}>{type}</span>
+                              <span className="text-xs text-navy-400">{(rate / 1000).toFixed(0)}K</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
 
@@ -504,7 +612,9 @@ export default function Bookings() {
               <p className="text-3xl font-display font-extrabold text-white mt-1">{formatPKR(livePrice)}</p>
             </div>
             <div className="text-right">
-              <p className={`text-sm ${bookingMode === "custom" ? "text-gold-100" : "text-primary-200"}`}>{bookingMode === "custom" ? "Custom" : "Package"}</p>
+              <p className={`text-sm ${bookingMode === "custom" ? "text-gold-100" : "text-primary-200"}`}>
+                {bookingMode === "custom" ? "Custom" : (showMakkahOccupancy || showMadinaOccupancy) ? occupancyMakkah + " Occupancy" : "Package"}
+              </p>
               <p className={`font-semibold ${bookingMode === "custom" ? "text-white" : "text-gold-300"}`}>
                 {bookingMode === "custom" ? (form.customPackageName || "—") : (form.packageName || "—")}
               </p>

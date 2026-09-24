@@ -272,9 +272,9 @@ export const initialOfficeExpenses: OfficeExpense[] = [
 ];
 
 export const initialHotelAllocations: HotelAllocation[] = [
-  { id: "ha1", hotelName: "Makkah Hilton", city: "Makkah", pricePerPerson: 45000 },
-  { id: "ha2", hotelName: "Madinah Oberoi", city: "Madina", pricePerPerson: 38000 },
-  { id: "ha3", hotelName: "Swissotel Makkah", city: "Makkah", pricePerPerson: 52000 },
-  { id: "ha4", hotelName: "Madinah Millennium", city: "Madina", pricePerPerson: 35000 },
-  { id: "ha5", hotelName: "Makkah Clock Tower", city: "Makkah", pricePerPerson: 65000 },
+  { id: "ha1", hotelName: "Makkah Hilton", city: "Makkah", pricePerPerson: 45000, sharingPrice: 35000, quadPrice: 40000, triplePrice: 45000, doublePrice: 55000 },
+  { id: "ha2", hotelName: "Madinah Oberoi", city: "Madina", pricePerPerson: 38000, sharingPrice: 28000, quadPrice: 33000, triplePrice: 38000, doublePrice: 48000 },
+  { id: "ha3", hotelName: "Swissotel Makkah", city: "Makkah", pricePerPerson: 52000, sharingPrice: 42000, quadPrice: 47000, triplePrice: 52000, doublePrice: 65000 },
+  { id: "ha4", hotelName: "Madinah Millennium", city: "Madina", pricePerPerson: 35000, sharingPrice: 25000, quadPrice: 30000, triplePrice: 35000, doublePrice: 45000 },
+  { id: "ha5", hotelName: "Makkah Clock Tower", city: "Makkah", pricePerPerson: 65000, sharingPrice: 55000, quadPrice: 60000, triplePrice: 65000, doublePrice: 80000 },
 ];

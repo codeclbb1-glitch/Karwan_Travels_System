@@ -437,7 +437,7 @@ export default function Hajj() {
                     <select className="input" value={pkgForm.hotelCost || ""} onChange={(e) => setPkgForm({ ...pkgForm, hotelCost: Number(e.target.value) })}>
                       <option value="">Select hotel…</option>
                       {hotelAllocations.filter((h) => h.city === "Makkah").map((h) => (
-                        <option key={h.id} value={h.pricePerPerson}>{h.hotelName} — {h.pricePerPerson.toLocaleString()} PKR/person</option>
+                        <option key={h.id} value={h.pricePerPerson}>{h.hotelName} — from {h.sharingPrice > 0 ? h.sharingPrice.toLocaleString() : h.pricePerPerson.toLocaleString()} PKR/person</option>
                       ))}
                     </select>
                   </div>

@@ -10,6 +10,10 @@ const emptyHotel: Omit<HotelAllocation, "id"> = {
   hotelName: "",
   city: "Makkah",
   pricePerPerson: 0,
+  sharingPrice: 0,
+  quadPrice: 0,
+  triplePrice: 0,
+  doublePrice: 0,
 };
 
 export default function Hotels() {
@@ -23,7 +27,10 @@ export default function Hotels() {
 
   const validate = () => collectErrors([
     ["hotelName", validators.required(form.hotelName, "Hotel name")],
-    ["pricePerPerson", validators.positiveNumber(form.pricePerPerson, "Price per person")],
+    ["sharingPrice", validators.nonNegativeNumber(form.sharingPrice, "Sharing price")],
+    ["quadPrice", validators.nonNegativeNumber(form.quadPrice, "Quad price")],
+    ["triplePrice", validators.nonNegativeNumber(form.triplePrice, "Triple price")],
+    ["doublePrice", validators.nonNegativeNumber(form.doublePrice, "Double price")],
   ]);
 
   const openAdd = () => { setEditId(null); setForm(emptyHotel); setErrors({}); setModal(true); };
@@ -33,12 +40,16 @@ export default function Hotels() {
     const errs = validate();
     setErrors(errs);
     if (hasErrors(errs)) { showToast("Please fix the errors", "error"); return; }
+    // Use the lowest non-zero occupancy price as the legacy pricePerPerson fallback
+    const prices = [form.sharingPrice, form.quadPrice, form.triplePrice, form.doublePrice].filter((p) => p > 0);
+    const fallback = prices.length > 0 ? Math.min(...prices) : 0;
+    const withFallback = { ...form, pricePerPerson: fallback };
     try {
       if (editId) {
-        await setHotelAllocations(hotelAllocations.map((h) => h.id === editId ? { ...form, id: editId } : h));
+        await setHotelAllocations(hotelAllocations.map((h) => h.id === editId ? { ...withFallback, id: editId } : h));
         showToast("Hotel updated");
       } else {
-        await setHotelAllocations([...hotelAllocations, { ...form, id: "ha" + Date.now() }]);
+        await setHotelAllocations([...hotelAllocations, { ...withFallback, id: "ha" + Date.now() }]);
         showToast("Hotel added");
       }
       setModal(false);
@@ -97,9 +108,17 @@ export default function Hotels() {
                     </div>
                     <h3 className="font-display font-bold text-navy-900">{h.hotelName}</h3>
                     <p className="text-xs text-navy-400 mb-3">{h.city}</p>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-navy-400">Price / Person</span>
-                      <span className="font-bold text-primary-700">{formatPKR(h.pricePerPerson)}</span>
+                    <div className="space-y-1.5 text-sm">
+                      {(["Sharing", "Quad", "Triple", "Double"] as const).map((type) => {
+                        const key = (type.toLowerCase() + "Price") as keyof HotelAllocation;
+                        const price = h[key] as number;
+                        return price > 0 ? (
+                          <div key={type} className="flex justify-between">
+                            <span className="text-navy-400">{type}</span>
+                            <span className="font-semibold text-primary-700">{formatPKR(price)}</span>
+                          </div>
+                        ) : null;
+                      })}
                     </div>
                   </div>
                 ))}
@@ -111,22 +130,44 @@ export default function Hotels() {
 
       <Modal open={modal} onClose={() => setModal(false)} title={editId ? "Edit Hotel" : "Add Hotel"}>
         <div className="space-y-4">
-          <div>
-            <label className="label">Hotel Name</label>
-            <input className={inputClass("input", errors.hotelName)} value={form.hotelName} onChange={(e) => setForm({ ...form, hotelName: e.target.value })} placeholder="e.g. Makkah Hilton" />
-            <FieldError error={errors.hotelName} />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">Hotel Name</label>
+              <input className={inputClass("input", errors.hotelName)} value={form.hotelName} onChange={(e) => setForm({ ...form, hotelName: e.target.value })} placeholder="e.g. Makkah Hilton" />
+              <FieldError error={errors.hotelName} />
+            </div>
+            <div>
+              <label className="label">City</label>
+              <select className="input" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value as "Makkah" | "Madina" })}>
+                <option value="Makkah">Makkah</option>
+                <option value="Madina">Madina</option>
+              </select>
+            </div>
           </div>
           <div>
-            <label className="label">City</label>
-            <select className="input" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value as "Makkah" | "Madina" })}>
-              <option value="Makkah">Makkah</option>
-              <option value="Madina">Madina</option>
-            </select>
-          </div>
-          <div>
-            <label className="label">Price per Person (PKR)</label>
-            <input type="number" min="0" className={inputClass("input", errors.pricePerPerson)} value={form.pricePerPerson || ""} onChange={(e) => setForm({ ...form, pricePerPerson: Number(e.target.value) })} placeholder="0" />
-            <FieldError error={errors.pricePerPerson} />
+            <p className="label mb-2">Occupancy Prices (PKR per person)</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">Sharing</label>
+                <input type="number" min="0" className={inputClass("input", errors.sharingPrice)} value={form.sharingPrice || ""} onChange={(e) => setForm({ ...form, sharingPrice: Number(e.target.value) })} placeholder="0" />
+                <FieldError error={errors.sharingPrice} />
+              </div>
+              <div>
+                <label className="label">Quad (4-person)</label>
+                <input type="number" min="0" className={inputClass("input", errors.quadPrice)} value={form.quadPrice || ""} onChange={(e) => setForm({ ...form, quadPrice: Number(e.target.value) })} placeholder="0" />
+                <FieldError error={errors.quadPrice} />
+              </div>
+              <div>
+                <label className="label">Triple (3-person)</label>
+                <input type="number" min="0" className={inputClass("input", errors.triplePrice)} value={form.triplePrice || ""} onChange={(e) => setForm({ ...form, triplePrice: Number(e.target.value) })} placeholder="0" />
+                <FieldError error={errors.triplePrice} />
+              </div>
+              <div>
+                <label className="label">Double (2-person)</label>
+                <input type="number" min="0" className={inputClass("input", errors.doublePrice)} value={form.doublePrice || ""} onChange={(e) => setForm({ ...form, doublePrice: Number(e.target.value) })} placeholder="0" />
+                <FieldError error={errors.doublePrice} />
+              </div>
+            </div>
           </div>
           <div className="flex gap-3 justify-end">
             <button onClick={() => setModal(false)} className="btn-outline">Cancel</button>

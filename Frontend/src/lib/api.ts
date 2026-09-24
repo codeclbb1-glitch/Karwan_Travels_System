@@ -58,7 +58,7 @@ export const dataApi = {
       bookings: (bookings.data ?? []).map((r: Row) => { const customer = (r.customers ?? {}) as Row; return { id: asString(r.id), customerName: asString(customer.full_name), cnicPassport: asString(customer.cnic_passport), phone: asString(customer.phone), address: asString(customer.address), nextOfKin: asString(customer.next_of_kin), nextOfKinPhone: asString(customer.next_of_kin_phone), serviceType: (r.service_type === "umrah" ? "Umrah" : "Hajj") as Booking["serviceType"], packageId: asString(r.service_type === "umrah" ? r.umrah_package_id : r.hajj_package_id), packageName: asString(r.package_name_snapshot), selectedInclusions: Array.isArray(r.selected_inclusions) ? r.selected_inclusions as string[] : [], finalPrice: asNumber(r.final_price), paymentStatus: (r.payment_status === "paid" ? "Paid" : r.payment_status === "partial" ? "Partial" : "Unpaid") as Booking["paymentStatus"], advanceAmount: asNumber(r.advance_amount), bookingDate: asString(r.booking_date), departureDate: asString(r.departure_date), arrivalDate: asString(r.arrival_date), airlineName: asString(r.airline_name), airlineCost: asNumber(r.airline_cost), hotelMakkahId: asString(r.hotel_makkah_id), hotelMadinaId: asString(r.hotel_madina_id) }; }),
       investments: (investments.data ?? []).map((r: Row) => ({ id: asString(r.id), name: asString(r.name), ownershipPercent: asNumber(r.ownership_percent), amountInvested: asNumber(r.amount_invested), date: asString(r.investment_date), notes: asString(r.notes) })),
       officeExpenses: (expenses.data ?? []).map((r: Row) => ({ id: asString(r.id), category: ({ salaries: "Salaries", bills: "Bills", rent: "Rent", food: "Food", miscellaneous: "Miscellaneous" } as Record<string, string>)[asString(r.category)] as OfficeExpense["category"], amount: asNumber(r.amount), date: asString(r.expense_date), description: asString(r.description), office: (r.office === "office_2" ? "Office 2" : "Office 1") as OfficeExpense["office"] })),
-      hotelAllocations: (hotel.data ?? []).map((r: Row) => ({ id: asString(r.id), hotelName: asString(r.hotel_name), city: (r.city === "madina" ? "Madina" : "Makkah") as HotelAllocation["city"], pricePerPerson: asNumber(r.cost_per_night) })),
+      hotelAllocations: (hotel.data ?? []).map((r: Row) => ({ id: asString(r.id), hotelName: asString(r.hotel_name), city: (r.city === "madina" ? "Madina" : "Makkah") as HotelAllocation["city"], pricePerPerson: asNumber(r.cost_per_night), sharingPrice: asNumber(r.sharing_price), quadPrice: asNumber(r.quad_price), triplePrice: asNumber(r.triple_price), doublePrice: asNumber(r.double_price) })),
     };
   },
 
@@ -109,12 +109,12 @@ export const dataApi = {
     if (error) throw error;
   },
 saveHotels: async (items: HotelAllocation[]): Promise<HotelAllocation[]> => {
-    const toRow = (i: HotelAllocation) => ({ hotel_name: i.hotelName, city: i.city.toLowerCase(), cost_per_night: i.pricePerPerson });
+    const toRow = (i: HotelAllocation) => ({ hotel_name: i.hotelName, city: i.city.toLowerCase(), cost_per_night: i.pricePerPerson, sharing_price: i.sharingPrice, quad_price: i.quadPrice, triple_price: i.triplePrice, double_price: i.doublePrice });
     const ex = items.filter((i) => i.id.length === 36), nw = items.filter((i) => i.id.length !== 36);
     const results: Row[] = [];
     if (ex.length) { const { data, error } = await supabase.from("hotel_inventory").upsert(ex.map((i) => ({ id: i.id, ...toRow(i) })), { onConflict: "id" }).select(); if (error) throw error; results.push(...(data ?? [])); }
     if (nw.length) { const { data, error } = await supabase.from("hotel_inventory").insert(nw.map(toRow)).select(); if (error) throw error; results.push(...(data ?? [])); }
-    return results.map((r) => ({ id: asString(r.id), hotelName: asString(r.hotel_name), city: (r.city === "madina" ? "Madina" : "Makkah") as HotelAllocation["city"], pricePerPerson: asNumber(r.cost_per_night) }));
+    return results.map((r) => ({ id: asString(r.id), hotelName: asString(r.hotel_name), city: (r.city === "madina" ? "Madina" : "Makkah") as HotelAllocation["city"], pricePerPerson: asNumber(r.cost_per_night), sharingPrice: asNumber(r.sharing_price), quadPrice: asNumber(r.quad_price), triplePrice: asNumber(r.triple_price), doublePrice: asNumber(r.double_price) }));
   },
   deleteHotel: async (id: string): Promise<void> => { const { error } = await supabase.from("hotel_inventory").delete().eq("id", id); if (error) throw error; },
   deleteBooking: async (id: string): Promise<void> => { const { error } = await supabase.from("bookings").delete().eq("id", id); if (error) throw error; },
